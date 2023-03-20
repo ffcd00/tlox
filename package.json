@@ -1,0 +1,17 @@
+{
+  "name": "tlox",
+  "version": "0.0.1",
+  "main": "index.ts",
+  "author": "Jinyuan Huang",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "yarn build && node build/index.js",
+    "clean": "rm -rf build"
+  },
+  "devDependencies": {
+    "@types/node": "^18.15.3",
+    "typescript": "^5.0.2"
+  }
+}
