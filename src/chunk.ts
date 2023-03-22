@@ -1,20 +1,18 @@
 import type { OpCode } from "./common";
-import type { Value } from "./value";
+import type { Value, ValueArray } from "./value";
 
-export type Chunk = Array<OpCode>;
+export class Chunk {
+  public readonly code: OpCode[] = [];
+  public readonly constants: ValueArray = [];
+  public readonly lines: number[] = [];
 
-export type Constants = Array<Value>;
+  public writeChunk(opcode: OpCode) {
+    this.code.push(opcode);
+  }
 
-export const chunk: Chunk = new Array<OpCode>();
-
-export const constants: Constants = new Array<Value>();
-
-export function writeChunk(opcode: OpCode) {
-  chunk.push(opcode);
-}
-
-export function addConstant(value: Value) {
-  constants.push(value);
-  return constants.length - 1;
+  public addConstant(value: Value) {
+    this.constants.push(value);
+    return this.constants.length - 1;
+  }
 }
 
