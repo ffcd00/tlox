@@ -15,6 +15,16 @@ export class DebugUtil {
         return this.simpleInstruction("OP_RETURN", offset, message);
       case OpCode.OP_CONSTANT:
         return this.constantInstruction("OP_CONSTANT", offset, message);
+      case OpCode.OP_ADD:
+        return this.simpleInstruction("OP_ADD", offset, message);
+      case OpCode.OP_SUBTRACT:
+        return this.simpleInstruction("OP_SUBTRACT", offset, message);
+      case OpCode.OP_MULTIPLY:
+        return this.simpleInstruction("OP_MULTIPLY", offset, message);
+      case OpCode.OP_DIVIDE:
+        return this.simpleInstruction("OP_DIVIDE", offset, message);
+      case OpCode.OP_NEGATE:
+        return this.simpleInstruction("OP_NEGATE", offset, message);
       default:
         console.log(`Unknown opcode ${instruction}`);
         return offset + 1;
@@ -29,12 +39,12 @@ export class DebugUtil {
     }
   }
 
-  private simpleInstruction(name: string, offset: number, message: string): number {
+  private simpleInstruction(name: keyof typeof OpCode, offset: number, message: string): number {
     console.log(`${message} ${name.padEnd(OP_NAME_PADDING, " ")}`);
     return offset + 1;
   }
 
-  private constantInstruction(name: string, offset: number, message: string): number {
+  private constantInstruction(name: keyof typeof OpCode, offset: number, message: string): number {
     const constantIndex = this.chunk.code[offset + 1];
     if (constantIndex !== undefined) {
       const constant = this.chunk.constants[constantIndex];
