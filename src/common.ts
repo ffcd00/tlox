@@ -9,4 +9,3 @@ export enum OpCode {
   OP_NEGATE,
   OP_RETURN,
 }
-

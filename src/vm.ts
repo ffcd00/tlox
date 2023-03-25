@@ -1,19 +1,17 @@
-import type { Chunk } from "./chunk";
-import { DEBUG_TRACE_EXECUTION, OpCode } from "./common";
-import { DebugUtil } from "./debug";
-import { Value } from "./value";
+import type { Chunk } from './chunk';
+import { DEBUG_TRACE_EXECUTION, OpCode } from './common';
+import { DebugUtil } from './debug';
+import { Value } from './value';
 
 const STACK_MAX = 256;
 
 export enum InterpretResult {
-  INTERPRET_OK,
-  INTERPRET_COMPILE_ERROR,
-  INTERPRET_RUNTIME_ERROR,
+  OK,
+  COMPILE_ERROR,
+  RUNTIME_ERROR,
 }
 
-type BinaryOperator = "+" | "-" | "*" | "/";
-
-export function interpret(chunk: Chunk) {}
+type BinaryOperator = '+' | '-' | '*' | '/';
 
 export class VM {
   private instructionIndex: number = 0;
@@ -28,8 +26,10 @@ export class VM {
     this.resetStack();
   }
 
-  public interpret(): void {
-    this.run();
+  public interpret(): InterpretResult {
+    // this.run();
+    // compile(source);
+    return InterpretResult.OK;
   }
 
   private run(): InterpretResult {
@@ -39,34 +39,36 @@ export class VM {
       }
 
       switch (this.readByte()) {
-        case OpCode.OP_CONSTANT:
+        case OpCode.OP_CONSTANT: {
           const constant: Value = this.readConstant();
           this.push(constant);
           break;
+        }
         case OpCode.OP_ADD:
-          this.binaryOperator("+");
+          this.binaryOperator('+');
           break;
         case OpCode.OP_SUBTRACT:
-          this.binaryOperator("-");
+          this.binaryOperator('-');
           break;
         case OpCode.OP_MULTIPLY:
-          this.binaryOperator("*");
+          this.binaryOperator('*');
           break;
         case OpCode.OP_DIVIDE:
-          this.binaryOperator("/");
+          this.binaryOperator('/');
           break;
         case OpCode.OP_NEGATE:
           this.push(-this.pop());
           break;
         case OpCode.OP_RETURN:
           this.pop();
-          return InterpretResult.INTERPRET_OK;
+          return InterpretResult.OK;
       }
     }
   }
 
   private readByte(): OpCode {
-    const index = this.instructionIndex++;
+    const index = this.instructionIndex;
+    this.instructionIndex += 1;
     return this.chunk.code[index];
   }
 
@@ -76,11 +78,11 @@ export class VM {
 
   private push(value: Value): void {
     this.stack[this.stackTop] = value;
-    this.stackTop++;
+    this.stackTop += 1;
   }
 
   private pop(): Value {
-    this.stackTop--;
+    this.stackTop -= 1;
     return this.stack[this.stackTop];
   }
 
@@ -92,20 +94,21 @@ export class VM {
     const b = this.pop();
     const a = this.pop();
 
-    const result = (() => {
+    const result = ((): number => {
       switch (op) {
-        case "+":
+        case '+':
           return a + b;
-        case "-":
+        case '-':
           return a - b;
-        case "*":
+        case '*':
           return a * b;
-        case "/":
+        case '/':
           return a / b;
+        default:
+          return 0;
       }
     })();
 
     this.push(result);
   }
 }
-
