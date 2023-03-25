@@ -12,15 +12,19 @@
   },
   "plugins": ["@typescript-eslint"],
   "rules": {
+    "max-len": ["warn", { "code": 120 }],
     "no-console": "off",
     "no-shadow": "off",
     "no-unused-vars": "off",
     "no-useless-constructor": "off",
     "no-empty-function": "off",
     "default-case": "off",
+    "comma-dangle": "off",
+    "operator-linebreak": "off",
     "import/extensions": "off",
     "import/no-unresolved": "off",
-    "import/prefer-default-export": "off"
+    "import/prefer-default-export": "off",
+    "max-classes-per-file": "off"
   },
   "overrides": [
     {
