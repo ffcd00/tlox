@@ -1,5 +1,6 @@
-import type { Chunk } from './chunk';
+import { Chunk } from './chunk';
 import { DEBUG_TRACE_EXECUTION, OpCode } from './common';
+import { Compiler } from './compiler';
 import { DebugUtil } from './debug';
 import { Value } from './value';
 
@@ -20,16 +21,22 @@ export class VM {
 
   private readonly stack: Value[] = new Array<Value>(STACK_MAX);
 
-  constructor(private readonly chunk: Chunk, private readonly debugUtil: DebugUtil) {}
+  constructor(
+    private readonly chunk: Chunk,
+    private readonly compiler: Compiler,
+    private readonly debugUtil: DebugUtil
+  ) {}
 
   public initVM(): void {
     this.resetStack();
   }
 
-  public interpret(): InterpretResult {
-    // this.run();
-    // compile(source);
-    return InterpretResult.OK;
+  public interpret(source: string): InterpretResult {
+    if (!this.compiler.compile(source)) {
+      return InterpretResult.COMPILE_ERROR;
+    }
+
+    return this.run();
   }
 
   private run(): InterpretResult {
@@ -59,9 +66,15 @@ export class VM {
         case OpCode.OP_NEGATE:
           this.push(-this.pop());
           break;
-        case OpCode.OP_RETURN:
-          this.pop();
+        case OpCode.OP_RETURN: {
+          const r = this.pop();
+
+          if (DEBUG_TRACE_EXECUTION) {
+            console.log(r);
+          }
+
           return InterpretResult.OK;
+        }
       }
     }
   }

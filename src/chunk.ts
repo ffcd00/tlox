@@ -8,8 +8,9 @@ export class Chunk {
 
   public readonly lines: number[] = [];
 
-  public writeChunk(opcode: OpCode): void {
+  public writeChunk(opcode: OpCode, line: number): void {
     this.code.push(opcode);
+    this.lines.push(line);
   }
 
   public addConstant(value: Value): number {
