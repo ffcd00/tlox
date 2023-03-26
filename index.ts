@@ -12,7 +12,7 @@ function main(): void {
   const vm = new VM(chunk, compiler, debugUtil);
 
   vm.initVM();
-  vm.interpret('1 + 2 + 3');
+  vm.interpret('!!(5 - 4 > 3 * 2 == !nil)');
 }
 
 main();

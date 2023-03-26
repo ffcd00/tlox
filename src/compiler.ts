@@ -115,12 +115,14 @@ export class Compiler {
   }
 
   private unary(source: string): void {
-    this.parsePrecedence(source, Precedence.UNARY);
     const operatorType = this.parser.previous.type;
 
-    this.expression(source);
+    this.parsePrecedence(source, Precedence.UNARY);
 
     switch (operatorType) {
+      case TokenType.BANG:
+        this.emitByte(OpCode.OP_NOT);
+        break;
       case TokenType.MINUS:
         this.emitByte(OpCode.OP_NEGATE);
         break;
@@ -133,6 +135,24 @@ export class Compiler {
     this.parsePrecedence(source, rule.precedence + 1);
 
     switch (operatorType) {
+      case TokenType.BANG_EQUAL:
+        this.emitBytes(OpCode.OP_EQUAL, OpCode.OP_NOT);
+        break;
+      case TokenType.EQUAL_EQUAL:
+        this.emitByte(OpCode.OP_EQUAL);
+        break;
+      case TokenType.GREATER:
+        this.emitByte(OpCode.OP_GREATER);
+        break;
+      case TokenType.GREATER_EQUAL:
+        this.emitBytes(OpCode.OP_LESS, OpCode.OP_NOT);
+        break;
+      case TokenType.LESS:
+        this.emitByte(OpCode.OP_LESS);
+        break;
+      case TokenType.LESS_EQUAL:
+        this.emitBytes(OpCode.OP_GREATER, OpCode.OP_NOT);
+        break;
       case TokenType.PLUS:
         this.emitByte(OpCode.OP_ADD);
         break;
@@ -237,14 +257,14 @@ export class Compiler {
     [TokenType.SEMICOLON]: Compiler.makeParseRule(),
     [TokenType.SLASH]: Compiler.makeParseRule(undefined, this.binary, Precedence.FACTOR),
     [TokenType.STAR]: Compiler.makeParseRule(undefined, this.binary, Precedence.FACTOR),
-    [TokenType.BANG]: Compiler.makeParseRule(),
-    [TokenType.BANG_EQUAL]: Compiler.makeParseRule(),
+    [TokenType.BANG]: Compiler.makeParseRule(this.unary),
+    [TokenType.BANG_EQUAL]: Compiler.makeParseRule(undefined, this.binary, Precedence.EQUALITY),
     [TokenType.EQUAL]: Compiler.makeParseRule(),
-    [TokenType.EQUAL_EQUAL]: Compiler.makeParseRule(),
-    [TokenType.GREATER]: Compiler.makeParseRule(),
-    [TokenType.GREATER_EQUAL]: Compiler.makeParseRule(),
-    [TokenType.LESS]: Compiler.makeParseRule(),
-    [TokenType.LESS_EQUAL]: Compiler.makeParseRule(),
+    [TokenType.EQUAL_EQUAL]: Compiler.makeParseRule(undefined, this.binary, Precedence.EQUALITY),
+    [TokenType.GREATER]: Compiler.makeParseRule(undefined, this.binary, Precedence.COMPARISON),
+    [TokenType.GREATER_EQUAL]: Compiler.makeParseRule(undefined, this.binary, Precedence.COMPARISON),
+    [TokenType.LESS]: Compiler.makeParseRule(undefined, this.binary, Precedence.COMPARISON),
+    [TokenType.LESS_EQUAL]: Compiler.makeParseRule(undefined, this.binary, Precedence.COMPARISON),
     [TokenType.IDENTIFIER]: Compiler.makeParseRule(),
     [TokenType.STRING]: Compiler.makeParseRule(),
     [TokenType.NUMBER]: Compiler.makeParseRule(this.number),

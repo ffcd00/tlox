@@ -21,6 +21,12 @@ export class DebugUtil {
         return this.simpleInstruction('OP_TRUE', offset, message);
       case OpCode.OP_FALSE:
         return this.simpleInstruction('OP_FALSE', offset, message);
+      case OpCode.OP_EQUAL:
+        return this.simpleInstruction('OP_EQUAL', offset, message);
+      case OpCode.OP_GREATER:
+        return this.simpleInstruction('OP_GREATER', offset, message);
+      case OpCode.OP_LESS:
+        return this.simpleInstruction('OP_LESS', offset, message);
       case OpCode.OP_ADD:
         return this.simpleInstruction('OP_ADD', offset, message);
       case OpCode.OP_SUBTRACT:
@@ -29,6 +35,8 @@ export class DebugUtil {
         return this.simpleInstruction('OP_MULTIPLY', offset, message);
       case OpCode.OP_DIVIDE:
         return this.simpleInstruction('OP_DIVIDE', offset, message);
+      case OpCode.OP_NOT:
+        return this.simpleInstruction('OP_NOT', offset, message);
       case OpCode.OP_NEGATE:
         return this.simpleInstruction('OP_NEGATE', offset, message);
       default:

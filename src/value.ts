@@ -43,6 +43,25 @@ export function isNumber(value: Value): boolean {
   return value.type === ValueType.NUMBER;
 }
 
+export function isFalsy(value: Value): boolean {
+  return isNil(value) || (isBoolean(value) && !asBoolean(value));
+}
+
+export function valuesEqual(a: Value, b: Value): boolean {
+  if (a.type !== b.type) {
+    return false;
+  }
+
+  switch (a.type) {
+    case ValueType.BOOLEAN:
+      return asBoolean(a) === asBoolean(b);
+    case ValueType.NIL:
+      return true;
+    case ValueType.NUMBER:
+      return asNumber(a) === asNumber(b);
+  }
+}
+
 export function printValue(value: Value): void {
   // TODO
   console.log(value);

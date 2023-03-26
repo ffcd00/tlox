@@ -2,7 +2,7 @@ import { Chunk } from './chunk';
 import { DEBUG_TRACE_EXECUTION, OpCode } from './common';
 import { Compiler } from './compiler';
 import { DebugUtil } from './debug';
-import { asNumber, booleanValue, isNumber, nilValue, numberValue, Value } from './value';
+import { asNumber, booleanValue, isFalsy, isNumber, nilValue, numberValue, Value, valuesEqual } from './value';
 
 const STACK_MAX = 256;
 
@@ -12,7 +12,7 @@ export enum InterpretResult {
   RUNTIME_ERROR,
 }
 
-type BinaryOperator = '+' | '-' | '*' | '/';
+type BinaryOperator = '+' | '-' | '*' | '/' | '>' | '<';
 
 export class VM {
   private instructionIndex: number = 0;
@@ -61,6 +61,18 @@ export class VM {
           case OpCode.OP_FALSE:
             this.push(booleanValue(false));
             break;
+          case OpCode.OP_EQUAL: {
+            const b = this.pop();
+            const a = this.pop();
+            this.push(booleanValue(valuesEqual(a, b)));
+            break;
+          }
+          case OpCode.OP_GREATER:
+            this.binaryOperator(booleanValue, '>');
+            break;
+          case OpCode.OP_LESS:
+            this.binaryOperator(booleanValue, '<');
+            break;
           case OpCode.OP_ADD:
             this.binaryOperator(numberValue, '+');
             break;
@@ -72,6 +84,9 @@ export class VM {
             break;
           case OpCode.OP_DIVIDE:
             this.binaryOperator(numberValue, '/');
+            break;
+          case OpCode.OP_NOT:
+            this.push(booleanValue(isFalsy(this.pop())));
             break;
           case OpCode.OP_NEGATE: {
             if (!isNumber(this.peek())) {
@@ -140,7 +155,7 @@ export class VM {
    * @param op
    * @throws OPERANDS_NOT_NUMBERS
    */
-  private binaryOperator(valueType: typeof numberValue, op: BinaryOperator): void {
+  private binaryOperator(valueType: typeof numberValue | typeof booleanValue, op: BinaryOperator): void {
     if (!isNumber(this.peek()) || !isNumber(this.peek(1))) {
       this.runtimeError('Operands must be numbers');
       throw new Error('OPERANDS_ARE_NOT_NUMBER');
@@ -149,7 +164,7 @@ export class VM {
     const b = asNumber(this.pop());
     const a = asNumber(this.pop());
 
-    const result = ((): number => {
+    const result = ((): number | boolean => {
       switch (op) {
         case '+':
           return a + b;
@@ -159,11 +174,13 @@ export class VM {
           return a * b;
         case '/':
           return a / b;
-        default:
-          return 0;
+        case '>':
+          return a > b;
+        case '<':
+          return a < b;
       }
     })();
 
-    this.push(valueType(result));
+    this.push((valueType as (value: number | boolean) => Value)(result));
   }
 }
