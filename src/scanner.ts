@@ -212,7 +212,7 @@ export class Scanner {
 
   private string(source: string): Token {
     while (this.peek(source) !== '"' && !this.isAtEnd(source)) {
-      if (this.peek(source) !== '\n') {
+      if (this.peek(source) === '\n') {
         this.line += 1;
       }
       this.advance(source);

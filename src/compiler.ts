@@ -1,7 +1,8 @@
 import type { Chunk } from './chunk';
 import { OpCode } from './common';
+import { allocateString } from './object';
 import { Scanner, Token, TokenType } from './scanner';
-import { numberValue, Value } from './value';
+import { numberValue, objectValue, Value } from './value';
 
 export enum Precedence {
   NONE,
@@ -111,6 +112,14 @@ export class Compiler {
     if (token.type !== TokenType.ERROR) {
       const value = parseFloat(source.substring(token.start, token.start + token.length));
       this.emitConstant(numberValue(value));
+    }
+  }
+
+  private string(source: string): void {
+    const token = this.parser.previous;
+    if (token.type !== TokenType.ERROR) {
+      const string = allocateString(source.substring(token.start + 1, token.start + token.length - 1));
+      this.emitConstant(objectValue(string));
     }
   }
 
@@ -266,7 +275,7 @@ export class Compiler {
     [TokenType.LESS]: Compiler.makeParseRule(undefined, this.binary, Precedence.COMPARISON),
     [TokenType.LESS_EQUAL]: Compiler.makeParseRule(undefined, this.binary, Precedence.COMPARISON),
     [TokenType.IDENTIFIER]: Compiler.makeParseRule(),
-    [TokenType.STRING]: Compiler.makeParseRule(),
+    [TokenType.STRING]: Compiler.makeParseRule(this.string),
     [TokenType.NUMBER]: Compiler.makeParseRule(this.number),
     [TokenType.AND]: Compiler.makeParseRule(),
     [TokenType.CLASS]: Compiler.makeParseRule(),

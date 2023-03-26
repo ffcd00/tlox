@@ -2,7 +2,18 @@ import { Chunk } from './chunk';
 import { DEBUG_TRACE_EXECUTION, OpCode } from './common';
 import { Compiler } from './compiler';
 import { DebugUtil } from './debug';
-import { asNumber, booleanValue, isFalsy, isNumber, nilValue, numberValue, Value, valuesEqual } from './value';
+import { allocateString, asString, isString } from './object';
+import {
+  asNumber,
+  booleanValue,
+  isFalsy,
+  isNumber,
+  nilValue,
+  numberValue,
+  objectValue,
+  Value,
+  valuesEqual,
+} from './value';
 
 const STACK_MAX = 256;
 
@@ -73,9 +84,17 @@ export class VM {
           case OpCode.OP_LESS:
             this.binaryOperator(booleanValue, '<');
             break;
-          case OpCode.OP_ADD:
-            this.binaryOperator(numberValue, '+');
+          case OpCode.OP_ADD: {
+            if (isString(this.peek()) && isString(this.peek(1))) {
+              this.concatenate();
+            } else if (isNumber(this.peek()) && isNumber(this.peek(1))) {
+              this.binaryOperator(numberValue, '+');
+            } else {
+              this.runtimeError('Operands must be two numbers or two strings');
+              return InterpretResult.RUNTIME_ERROR;
+            }
             break;
+          }
           case OpCode.OP_SUBTRACT:
             this.binaryOperator(numberValue, '-');
             break;
@@ -182,5 +201,12 @@ export class VM {
     })();
 
     this.push((valueType as (value: number | boolean) => Value)(result));
+  }
+
+  private concatenate(): void {
+    const b = asString(this.pop());
+    const a = asString(this.pop());
+    const result = allocateString(a.chars.concat(b.chars));
+    this.push(objectValue(result));
   }
 }

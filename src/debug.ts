@@ -1,5 +1,6 @@
 import { Chunk } from './chunk';
 import { OpCode } from './common';
+import { printValue } from './value';
 
 const OP_NAME_PADDING = 16;
 
@@ -62,7 +63,7 @@ export class DebugUtil {
     const constantIndex = this.chunk.code[offset + 1];
     if (constantIndex !== undefined) {
       const constant = this.chunk.constants[constantIndex];
-      console.log(`${message} ${name.padEnd(OP_NAME_PADDING, ' ')} ${constantIndex} ${constant.as}`);
+      console.log(`${message} ${name.padEnd(OP_NAME_PADDING, ' ')} ${constantIndex} ${printValue(constant)}`);
       return offset + 2;
     }
     console.error(`Error: constant not found at index ${offset + 1}`);
