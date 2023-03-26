@@ -15,6 +15,12 @@ export class DebugUtil {
         return this.simpleInstruction('OP_RETURN', offset, message);
       case OpCode.OP_CONSTANT:
         return this.constantInstruction('OP_CONSTANT', offset, message);
+      case OpCode.OP_NIL:
+        return this.simpleInstruction('OP_NIL', offset, message);
+      case OpCode.OP_TRUE:
+        return this.simpleInstruction('OP_TRUE', offset, message);
+      case OpCode.OP_FALSE:
+        return this.simpleInstruction('OP_FALSE', offset, message);
       case OpCode.OP_ADD:
         return this.simpleInstruction('OP_ADD', offset, message);
       case OpCode.OP_SUBTRACT:
@@ -48,7 +54,7 @@ export class DebugUtil {
     const constantIndex = this.chunk.code[offset + 1];
     if (constantIndex !== undefined) {
       const constant = this.chunk.constants[constantIndex];
-      console.log(`${message} ${name.padEnd(OP_NAME_PADDING, ' ')} ${constantIndex} ${constant}`);
+      console.log(`${message} ${name.padEnd(OP_NAME_PADDING, ' ')} ${constantIndex} ${constant.as}`);
       return offset + 2;
     }
     console.error(`Error: constant not found at index ${offset + 1}`);

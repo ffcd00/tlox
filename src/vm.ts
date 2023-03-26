@@ -2,7 +2,7 @@ import { Chunk } from './chunk';
 import { DEBUG_TRACE_EXECUTION, OpCode } from './common';
 import { Compiler } from './compiler';
 import { DebugUtil } from './debug';
-import { Value } from './value';
+import { asNumber, booleanValue, isNumber, nilValue, numberValue, Value } from './value';
 
 const STACK_MAX = 256;
 
@@ -45,35 +45,57 @@ export class VM {
         this.debugUtil.disassembleInstruction(this.instructionIndex);
       }
 
-      switch (this.readByte()) {
-        case OpCode.OP_CONSTANT: {
-          const constant: Value = this.readConstant();
-          this.push(constant);
-          break;
-        }
-        case OpCode.OP_ADD:
-          this.binaryOperator('+');
-          break;
-        case OpCode.OP_SUBTRACT:
-          this.binaryOperator('-');
-          break;
-        case OpCode.OP_MULTIPLY:
-          this.binaryOperator('*');
-          break;
-        case OpCode.OP_DIVIDE:
-          this.binaryOperator('/');
-          break;
-        case OpCode.OP_NEGATE:
-          this.push(-this.pop());
-          break;
-        case OpCode.OP_RETURN: {
-          const r = this.pop();
-
-          if (DEBUG_TRACE_EXECUTION) {
-            console.log(r);
+      try {
+        switch (this.readByte()) {
+          case OpCode.OP_CONSTANT: {
+            const constant: Value = this.readConstant();
+            this.push(constant);
+            break;
           }
+          case OpCode.OP_NIL:
+            this.push(nilValue());
+            break;
+          case OpCode.OP_TRUE:
+            this.push(booleanValue(true));
+            break;
+          case OpCode.OP_FALSE:
+            this.push(booleanValue(false));
+            break;
+          case OpCode.OP_ADD:
+            this.binaryOperator(numberValue, '+');
+            break;
+          case OpCode.OP_SUBTRACT:
+            this.binaryOperator(numberValue, '-');
+            break;
+          case OpCode.OP_MULTIPLY:
+            this.binaryOperator(numberValue, '*');
+            break;
+          case OpCode.OP_DIVIDE:
+            this.binaryOperator(numberValue, '/');
+            break;
+          case OpCode.OP_NEGATE: {
+            if (!isNumber(this.peek())) {
+              this.runtimeError('Operand must be a number');
+              return InterpretResult.RUNTIME_ERROR;
+            }
+            this.push(numberValue(-asNumber(this.pop())));
+            break;
+          }
+          case OpCode.OP_RETURN: {
+            const r = this.pop();
 
-          return InterpretResult.OK;
+            if (DEBUG_TRACE_EXECUTION) {
+              console.log(r);
+            }
+
+            return InterpretResult.OK;
+          }
+        }
+      } catch (e: unknown) {
+        if (e instanceof Error) {
+          if (e.message === 'OPERANDS_ARE_NOT_NUMBER') {
+            return InterpretResult.RUNTIME_ERROR;
+          }
         }
       }
     }
@@ -99,13 +121,33 @@ export class VM {
     return this.stack[this.stackTop];
   }
 
+  private peek(distance: number = 0): Value {
+    return this.stack[this.stackTop - 1 - distance];
+  }
+
   private resetStack(): void {
     this.stackTop = 0;
   }
 
-  private binaryOperator(op: BinaryOperator): void {
-    const b = this.pop();
-    const a = this.pop();
+  private runtimeError(message: string): void {
+    console.log(message);
+    this.resetStack();
+  }
+
+  /**
+   *
+   * @param valueType
+   * @param op
+   * @throws OPERANDS_NOT_NUMBERS
+   */
+  private binaryOperator(valueType: typeof numberValue, op: BinaryOperator): void {
+    if (!isNumber(this.peek()) || !isNumber(this.peek(1))) {
+      this.runtimeError('Operands must be numbers');
+      throw new Error('OPERANDS_ARE_NOT_NUMBER');
+    }
+
+    const b = asNumber(this.pop());
+    const a = asNumber(this.pop());
 
     const result = ((): number => {
       switch (op) {
@@ -122,6 +164,6 @@ export class VM {
       }
     })();
 
-    this.push(result);
+    this.push(valueType(result));
   }
 }

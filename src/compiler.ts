@@ -1,7 +1,7 @@
 import type { Chunk } from './chunk';
 import { OpCode } from './common';
 import { Scanner, Token, TokenType } from './scanner';
-import { Value } from './value';
+import { numberValue, Value } from './value';
 
 export enum Precedence {
   NONE,
@@ -110,7 +110,7 @@ export class Compiler {
     const token = this.parser.previous;
     if (token.type !== TokenType.ERROR) {
       const value = parseFloat(source.substring(token.start, token.start + token.length));
-      this.emitConstant(value);
+      this.emitConstant(numberValue(value));
     }
   }
 
@@ -144,6 +144,20 @@ export class Compiler {
         break;
       case TokenType.SLASH:
         this.emitByte(OpCode.OP_DIVIDE);
+        break;
+    }
+  }
+
+  private literal(): void {
+    switch (this.parser.previous.type) {
+      case TokenType.FALSE:
+        this.emitByte(OpCode.OP_FALSE);
+        break;
+      case TokenType.NIL:
+        this.emitByte(OpCode.OP_NIL);
+        break;
+      case TokenType.TRUE:
+        this.emitByte(OpCode.OP_TRUE);
         break;
     }
   }
@@ -237,17 +251,17 @@ export class Compiler {
     [TokenType.AND]: Compiler.makeParseRule(),
     [TokenType.CLASS]: Compiler.makeParseRule(),
     [TokenType.ELSE]: Compiler.makeParseRule(),
-    [TokenType.FALSE]: Compiler.makeParseRule(),
+    [TokenType.FALSE]: Compiler.makeParseRule(this.literal),
     [TokenType.FOR]: Compiler.makeParseRule(),
     [TokenType.FUN]: Compiler.makeParseRule(),
     [TokenType.IF]: Compiler.makeParseRule(),
-    [TokenType.NIL]: Compiler.makeParseRule(),
+    [TokenType.NIL]: Compiler.makeParseRule(this.literal),
     [TokenType.OR]: Compiler.makeParseRule(),
     [TokenType.PRINT]: Compiler.makeParseRule(),
     [TokenType.RETURN]: Compiler.makeParseRule(),
     [TokenType.SUPER]: Compiler.makeParseRule(),
     [TokenType.THIS]: Compiler.makeParseRule(),
-    [TokenType.TRUE]: Compiler.makeParseRule(),
+    [TokenType.TRUE]: Compiler.makeParseRule(this.literal),
     [TokenType.VAR]: Compiler.makeParseRule(),
     [TokenType.WHILE]: Compiler.makeParseRule(),
     [TokenType.ERROR]: Compiler.makeParseRule(),
