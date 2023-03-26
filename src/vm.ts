@@ -1,6 +1,5 @@
 import { Chunk } from './chunk';
 import { DEBUG_TRACE_EXECUTION, OpCode } from './common';
-import { Compiler } from './compiler';
 import { DebugUtil } from './debug';
 import { allocateString, asString, isString } from './object';
 import {
@@ -32,25 +31,13 @@ export class VM {
 
   private readonly stack: Value[] = new Array<Value>(STACK_MAX);
 
-  constructor(
-    private readonly chunk: Chunk,
-    private readonly compiler: Compiler,
-    private readonly debugUtil: DebugUtil
-  ) {}
+  constructor(private readonly chunk: Chunk, private readonly debugUtil: DebugUtil) {}
 
   public initVM(): void {
     this.resetStack();
   }
 
-  public interpret(source: string): InterpretResult {
-    if (!this.compiler.compile(source)) {
-      return InterpretResult.COMPILE_ERROR;
-    }
-
-    return this.run();
-  }
-
-  private run(): InterpretResult {
+  public run(): InterpretResult {
     for (;;) {
       if (DEBUG_TRACE_EXECUTION) {
         this.debugUtil.disassembleInstruction(this.instructionIndex);
