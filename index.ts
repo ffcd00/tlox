@@ -1,7 +1,7 @@
 import { interpret } from './src';
 
 function main(): void {
-  const source = '!!(5 - 4 > 3 * 2 == !nil)';
+  const source = '"abc" + "cd" == "abc" + "cd"';
   interpret(source);
 }
 

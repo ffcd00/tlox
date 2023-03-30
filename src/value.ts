@@ -75,10 +75,7 @@ export function valuesEqual(a: Value, b: Value): boolean {
     case ValueType.NUMBER:
       return asNumber(a) === asNumber(b);
     case ValueType.OBJECT: {
-      const aString = asString(a);
-      const bString = asString(b);
-
-      return aString.length === bString.length && aString === bString;
+      return asObject(a) === asObject(b);
     }
   }
 }

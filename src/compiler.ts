@@ -41,8 +41,16 @@ class Parser {
 export class Compiler {
   private readonly parser: Parser;
 
+  /**
+   * `strings` is a mapping between declared string constants and
+   * their corresponding indices in the constant pool, which is
+   * useful for string interning in compile time.
+   */
+  private readonly strings: Map<string, number>;
+
   constructor(private readonly chunk: Chunk, private readonly scanner: Scanner) {
     this.parser = new Parser();
+    this.strings = new Map<string, number>();
   }
 
   public compile(source: string): boolean {
@@ -94,8 +102,15 @@ export class Compiler {
     return constant;
   }
 
-  private emitConstant(value: Value): void {
-    this.emitBytes(OpCode.OP_CONSTANT, this.makeConstant(value));
+  /**
+   *
+   * @param value
+   * @returns The index of value in the constant pool
+   */
+  private emitConstant(value: Value): number {
+    const index = this.makeConstant(value);
+    this.emitBytes(OpCode.OP_CONSTANT, index);
+    return index;
   }
 
   private endCompiler(): void {
@@ -118,8 +133,15 @@ export class Compiler {
   private string(source: string): void {
     const token = this.parser.previous;
     if (token.type !== TokenType.ERROR) {
-      const string = allocateString(source.substring(token.start + 1, token.start + token.length - 1));
-      this.emitConstant(objectValue(string));
+      const sourceString = source.substring(token.start + 1, token.start + token.length - 1);
+      if (this.strings.has(sourceString)) {
+        // intern string
+        this.emitBytes(OpCode.OP_CONSTANT, this.strings.get(sourceString)!);
+      } else {
+        const string = allocateString(sourceString);
+        const index = this.emitConstant(objectValue(string));
+        this.strings.set(sourceString, index);
+      }
     }
   }
 

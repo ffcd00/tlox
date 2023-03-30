@@ -1,7 +1,7 @@
 import { Chunk } from './chunk';
 import { DEBUG_TRACE_EXECUTION, OpCode } from './common';
 import { DebugUtil } from './debug';
-import { allocateString, asString, isString } from './object';
+import { allocateString, asString, isString, ObjectString } from './object';
 import {
   asNumber,
   booleanValue,
@@ -31,10 +31,17 @@ export class VM {
 
   private readonly stack: Value[] = new Array<Value>(STACK_MAX);
 
+  /**
+   * `strings` is a mapping between computed string constants and
+   * the corresponding `ObjectString` for string interning in runtime.
+   */
+  private readonly strings: Map<string, ObjectString> = new Map<string, ObjectString>();
+
   constructor(private readonly chunk: Chunk, private readonly debugUtil: DebugUtil) {}
 
   public initVM(): void {
     this.resetStack();
+    this.strings.clear();
   }
 
   public run(): InterpretResult {
@@ -148,6 +155,7 @@ export class VM {
 
   private resetStack(): void {
     this.stackTop = 0;
+    this.instructionIndex = 0;
   }
 
   private runtimeError(message: string): void {
@@ -193,7 +201,14 @@ export class VM {
   private concatenate(): void {
     const b = asString(this.pop());
     const a = asString(this.pop());
-    const result = allocateString(a.chars.concat(b.chars));
-    this.push(objectValue(result));
+
+    const string = a.chars.concat(b.chars);
+    if (this.strings.has(string)) {
+      this.push(objectValue(this.strings.get(string)!));
+    } else {
+      const result = allocateString(string);
+      this.push(objectValue(result));
+      this.strings.set(string, result);
+    }
   }
 }
