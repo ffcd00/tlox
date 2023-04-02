@@ -1,6 +1,7 @@
 import { Chunk } from './chunk';
-import { DEBUG_TRACE_EXECUTION, OpCode } from './common';
+import { DEBUG_TRACE_EXECUTION } from './common';
 import { DebugUtil } from './debug';
+import { InterpretResult, OpCode } from './enum';
 import { allocateString, asString, isString, ObjectString } from './object';
 import {
   asNumber,
@@ -15,12 +16,6 @@ import {
 } from './value';
 
 const STACK_MAX = 256;
-
-export enum InterpretResult {
-  OK,
-  COMPILE_ERROR,
-  RUNTIME_ERROR,
-}
 
 type BinaryOperator = '+' | '-' | '*' | '/' | '>' | '<';
 

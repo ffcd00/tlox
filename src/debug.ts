@@ -1,5 +1,5 @@
 import { Chunk } from './chunk';
-import { OpCode } from './common';
+import { OpCode } from './enum';
 import { printValue } from './value';
 
 const OP_NAME_PADDING = 16;

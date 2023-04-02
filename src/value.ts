@@ -1,11 +1,5 @@
+import { ValueType } from './enum';
 import { asString, LoxObject, printObject } from './object';
-
-export enum ValueType {
-  BOOLEAN,
-  NIL,
-  NUMBER,
-  OBJECT,
-}
 
 export type Value = {
   type: ValueType;

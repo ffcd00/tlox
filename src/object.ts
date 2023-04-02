@@ -1,4 +1,4 @@
-import { asObject, isObject, Value, ValueType } from './value';
+import { asObject, isObject, Value } from './value';
 
 export enum ObjectType {
   STRING,

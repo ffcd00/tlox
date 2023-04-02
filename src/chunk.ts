@@ -1,4 +1,4 @@
-import type { OpCode } from './common';
+import type { OpCode } from './enum';
 import type { Value, ValueArray } from './value';
 
 export class Chunk {

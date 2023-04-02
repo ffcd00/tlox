@@ -1,8 +1,9 @@
 import { Chunk } from './chunk';
 import { Compiler } from './compiler';
 import { DebugUtil } from './debug';
+import { InterpretResult } from './enum';
 import { Scanner } from './scanner';
-import { InterpretResult, VM } from './vm';
+import { VM } from './vm';
 
 export function interpret(source: string): InterpretResult {
   const chunk = new Chunk();

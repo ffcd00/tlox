@@ -1,22 +1,8 @@
 import type { Chunk } from './chunk';
-import { OpCode } from './common';
+import { OpCode, Precedence, TokenType } from './enum';
 import { allocateString } from './object';
-import { Scanner, Token, TokenType } from './scanner';
+import { Scanner, Token } from './scanner';
 import { numberValue, objectValue, Value } from './value';
-
-export enum Precedence {
-  NONE,
-  ASSIGNMENT, // =
-  OR, // or
-  AND, // and
-  EQUALITY, // == !=
-  COMPARISON, // < > <= >=
-  TERM, // + -
-  FACTOR, // * /
-  UNARY, // ! -
-  CALL, // . ()
-  PRIMARY,
-}
 
 type ParseFn = (source: string) => void;
 
@@ -56,7 +42,6 @@ export class Compiler {
   public compile(source: string): boolean {
     this.advance(source);
     this.expression(source);
-    // this.consume(source, TokenType.EOF, 'Expect end of expression');
     this.endCompiler();
     return !this.parser.hadError;
   }
