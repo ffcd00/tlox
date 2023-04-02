@@ -24,7 +24,9 @@
     "import/extensions": "off",
     "import/no-unresolved": "off",
     "import/prefer-default-export": "off",
-    "max-classes-per-file": "off"
+    "max-classes-per-file": "off",
+    "object-curly-newline": "off",
+    "consistent-return": "off"
   },
   "overrides": [
     {
@@ -32,6 +34,12 @@
       "files": ["*.ts", "*.mts", "*.cts", "*.tsx"],
       "rules": {
         "@typescript-eslint/explicit-function-return-type": "error"
+      }
+    },
+    {
+      "files": ["tests/**"],
+      "rules": {
+        "no-undef": "off"
       }
     }
   ]
