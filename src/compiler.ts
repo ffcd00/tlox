@@ -1,6 +1,7 @@
 import type { Chunk } from './chunk';
 import { Emitter } from './emitter';
 import { OpCode, Precedence, TokenType } from './enum';
+import { Environment } from './environment';
 import { allocateString } from './object';
 import { Parser } from './parser';
 import { Scanner, Token } from './scanner';
@@ -28,7 +29,8 @@ export class Compiler {
     private readonly chunk: Chunk,
     private readonly scanner: Scanner,
     private readonly parser: Parser,
-    private readonly emitter: Emitter
+    private readonly emitter: Emitter,
+    private readonly environment: Environment
   ) {
     this.strings = new Map<string, number>();
   }
@@ -235,11 +237,11 @@ export class Compiler {
     this.parser.panicMode = true;
 
     if (token.type === TokenType.EOF) {
-      console.error(`[line ${token.line}] Error at end: ${message}`);
+      this.environment.stderr(`[line ${token.line}] Error at end: ${message}`);
     } else if (token.type === TokenType.ERROR) {
       // no-op
     } else {
-      console.error(`[line ${token.line}] Error: ${message}`);
+      this.environment.stderr(`[line ${token.line}] Error: ${message}`);
     }
 
     this.parser.hadError = true;

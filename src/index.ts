@@ -14,7 +14,7 @@ export function interpret(source: string, environment: Environment = new Environ
   const debugUtil = new DebugUtil(chunk);
   const parser = new Parser();
   const emitter = new Emitter(chunk, parser);
-  const compiler = new Compiler(chunk, scanner, parser, emitter);
+  const compiler = new Compiler(chunk, scanner, parser, emitter, environment);
 
   if (!compiler.compile(source)) {
     return InterpretResult.COMPILE_ERROR;
