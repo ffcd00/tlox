@@ -1,6 +1,8 @@
 import type { Chunk } from './chunk';
+import { Emitter } from './emitter';
 import { OpCode, Precedence, TokenType } from './enum';
 import { allocateString } from './object';
+import { Parser } from './parser';
 import { Scanner, Token } from './scanner';
 import { numberValue, objectValue, Value } from './value';
 
@@ -14,19 +16,7 @@ interface ParseRule {
   precedence: Precedence;
 }
 
-class Parser {
-  public current!: Token;
-
-  public previous!: Token;
-
-  public hadError: boolean = false;
-
-  public panicMode: boolean = false;
-}
-
 export class Compiler {
-  private readonly parser: Parser;
-
   /**
    * `strings` is a mapping between declared string constants and
    * their corresponding indices in the constant pool, which is
@@ -34,8 +24,12 @@ export class Compiler {
    */
   private readonly strings: Map<string, number>;
 
-  constructor(private readonly chunk: Chunk, private readonly scanner: Scanner) {
-    this.parser = new Parser();
+  constructor(
+    private readonly chunk: Chunk,
+    private readonly scanner: Scanner,
+    private readonly parser: Parser,
+    private readonly emitter: Emitter
+  ) {
     this.strings = new Map<string, number>();
   }
 
@@ -68,38 +62,8 @@ export class Compiler {
     this.errorAtCurrent(message);
   }
 
-  private emitByte(byte: OpCode): void {
-    this.chunk.writeChunk(byte, this.parser.previous.line);
-  }
-
-  private emitBytes(byte1: OpCode, byte2: OpCode): void {
-    this.emitByte(byte1);
-    this.emitByte(byte2);
-  }
-
-  private emitReturn(): void {
-    this.emitByte(OpCode.OP_RETURN);
-  }
-
-  private makeConstant(value: Value): number {
-    const constant = this.chunk.addConstant(value);
-
-    return constant;
-  }
-
-  /**
-   *
-   * @param value
-   * @returns The index of value in the constant pool
-   */
-  private emitConstant(value: Value): number {
-    const index = this.makeConstant(value);
-    this.emitBytes(OpCode.OP_CONSTANT, index);
-    return index;
-  }
-
   private endCompiler(): void {
-    this.emitReturn();
+    this.emitter.emitReturn();
   }
 
   private grouping(source: string): void {
@@ -111,7 +75,7 @@ export class Compiler {
     const token = this.parser.previous;
     if (token.type !== TokenType.ERROR) {
       const value = parseFloat(source.substring(token.start, token.start + token.length));
-      this.emitConstant(numberValue(value));
+      this.emitter.emitConstant(numberValue(value));
     }
   }
 
@@ -121,10 +85,10 @@ export class Compiler {
       const sourceString = source.substring(token.start + 1, token.start + token.length - 1);
       if (this.strings.has(sourceString)) {
         // intern string
-        this.emitBytes(OpCode.OP_CONSTANT, this.strings.get(sourceString)!);
+        this.emitter.emitBytes(OpCode.OP_CONSTANT, this.strings.get(sourceString)!);
       } else {
         const string = allocateString(sourceString);
-        const index = this.emitConstant(objectValue(string));
+        const index = this.emitter.emitConstant(objectValue(string));
         this.strings.set(sourceString, index);
       }
     }
@@ -137,10 +101,10 @@ export class Compiler {
 
     switch (operatorType) {
       case TokenType.BANG:
-        this.emitByte(OpCode.OP_NOT);
+        this.emitter.emitByte(OpCode.OP_NOT);
         break;
       case TokenType.MINUS:
-        this.emitByte(OpCode.OP_NEGATE);
+        this.emitter.emitByte(OpCode.OP_NEGATE);
         break;
     }
   }
@@ -152,34 +116,34 @@ export class Compiler {
 
     switch (operatorType) {
       case TokenType.BANG_EQUAL:
-        this.emitBytes(OpCode.OP_EQUAL, OpCode.OP_NOT);
+        this.emitter.emitBytes(OpCode.OP_EQUAL, OpCode.OP_NOT);
         break;
       case TokenType.EQUAL_EQUAL:
-        this.emitByte(OpCode.OP_EQUAL);
+        this.emitter.emitByte(OpCode.OP_EQUAL);
         break;
       case TokenType.GREATER:
-        this.emitByte(OpCode.OP_GREATER);
+        this.emitter.emitByte(OpCode.OP_GREATER);
         break;
       case TokenType.GREATER_EQUAL:
-        this.emitBytes(OpCode.OP_LESS, OpCode.OP_NOT);
+        this.emitter.emitBytes(OpCode.OP_LESS, OpCode.OP_NOT);
         break;
       case TokenType.LESS:
-        this.emitByte(OpCode.OP_LESS);
+        this.emitter.emitByte(OpCode.OP_LESS);
         break;
       case TokenType.LESS_EQUAL:
-        this.emitBytes(OpCode.OP_GREATER, OpCode.OP_NOT);
+        this.emitter.emitBytes(OpCode.OP_GREATER, OpCode.OP_NOT);
         break;
       case TokenType.PLUS:
-        this.emitByte(OpCode.OP_ADD);
+        this.emitter.emitByte(OpCode.OP_ADD);
         break;
       case TokenType.MINUS:
-        this.emitByte(OpCode.OP_SUBTRACT);
+        this.emitter.emitByte(OpCode.OP_SUBTRACT);
         break;
       case TokenType.STAR:
-        this.emitByte(OpCode.OP_MULTIPLY);
+        this.emitter.emitByte(OpCode.OP_MULTIPLY);
         break;
       case TokenType.SLASH:
-        this.emitByte(OpCode.OP_DIVIDE);
+        this.emitter.emitByte(OpCode.OP_DIVIDE);
         break;
     }
   }
@@ -187,13 +151,13 @@ export class Compiler {
   private literal(): void {
     switch (this.parser.previous.type) {
       case TokenType.FALSE:
-        this.emitByte(OpCode.OP_FALSE);
+        this.emitter.emitByte(OpCode.OP_FALSE);
         break;
       case TokenType.NIL:
-        this.emitByte(OpCode.OP_NIL);
+        this.emitter.emitByte(OpCode.OP_NIL);
         break;
       case TokenType.TRUE:
-        this.emitByte(OpCode.OP_TRUE);
+        this.emitter.emitByte(OpCode.OP_TRUE);
         break;
     }
   }
