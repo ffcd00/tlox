@@ -35,7 +35,11 @@ export class Compiler {
 
   public compile(source: string): boolean {
     this.advance(source);
-    this.expression(source);
+
+    while (!this.match(source, TokenType.EOF)) {
+      this.declaration(source);
+    }
+
     this.endCompiler();
     return !this.parser.hadError;
   }
@@ -60,6 +64,18 @@ export class Compiler {
     }
 
     this.errorAtCurrent(message);
+  }
+
+  private check(type: TokenType): boolean {
+    return this.parser.current.type === type;
+  }
+
+  private match(source: string, type: TokenType): boolean {
+    if (!this.check(type)) {
+      return false;
+    }
+    this.advance(source);
+    return true;
   }
 
   private endCompiler(): void {
@@ -185,6 +201,22 @@ export class Compiler {
 
   private expression(source: string): void {
     this.parsePrecedence(source, Precedence.ASSIGNMENT);
+  }
+
+  private declaration(source: string): void {
+    this.statement(source);
+  }
+
+  private statement(source: string): void {
+    if (this.match(source, TokenType.PRINT)) {
+      this.printStatement(source);
+    }
+  }
+
+  private printStatement(source: string): void {
+    this.expression(source);
+    this.consume(source, TokenType.SEMICOLON, "Expect ';' after value.");
+    this.emitter.emitByte(OpCode.OP_PRINT);
   }
 
   private error(message: string): void {

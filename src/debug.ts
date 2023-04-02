@@ -40,6 +40,8 @@ export class DebugUtil {
         return this.simpleInstruction('OP_NOT', offset, message);
       case OpCode.OP_NEGATE:
         return this.simpleInstruction('OP_NEGATE', offset, message);
+      case OpCode.OP_PRINT:
+        return this.simpleInstruction('OP_PRINT', offset, message);
       default:
         console.log(`Unknown opcode ${instruction}`);
         return offset + 1;

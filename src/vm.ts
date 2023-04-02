@@ -2,6 +2,7 @@ import { Chunk } from './chunk';
 import { DEBUG_TRACE_EXECUTION } from './common';
 import { DebugUtil } from './debug';
 import { InterpretResult, OpCode } from './enum';
+import { Environment } from './environment';
 import { allocateString, asString, isString, ObjectString } from './object';
 import {
   asNumber,
@@ -11,6 +12,7 @@ import {
   nilValue,
   numberValue,
   objectValue,
+  printValue,
   Value,
   valuesEqual,
 } from './value';
@@ -19,7 +21,7 @@ const STACK_MAX = 256;
 
 type BinaryOperator = '+' | '-' | '*' | '/' | '>' | '<';
 
-export class VM {
+export class VirtualMachine {
   private instructionIndex: number = 0;
 
   private stackTop: number = 0;
@@ -32,7 +34,11 @@ export class VM {
    */
   private readonly strings: Map<string, ObjectString> = new Map<string, ObjectString>();
 
-  constructor(private readonly chunk: Chunk, private readonly debugUtil: DebugUtil) {}
+  constructor(
+    private readonly chunk: Chunk,
+    private readonly debugUtil: DebugUtil,
+    private readonly environment: Environment
+  ) {}
 
   public initVM(): void {
     this.resetStack();
@@ -104,15 +110,14 @@ export class VM {
             this.push(numberValue(-asNumber(this.pop())));
             break;
           }
-          case OpCode.OP_RETURN: {
-            const r = this.pop();
-
-            if (DEBUG_TRACE_EXECUTION) {
-              console.log(r);
-            }
-
-            return InterpretResult.OK;
+          case OpCode.OP_PRINT: {
+            const value = printValue(this.pop());
+            this.environment.stdout(value);
+            this.environment.stdout('\n');
+            break;
           }
+          case OpCode.OP_RETURN:
+            return InterpretResult.OK;
         }
       } catch (e: unknown) {
         if (e instanceof Error) {

@@ -3,11 +3,12 @@ import { Compiler } from './compiler';
 import { DebugUtil } from './debug';
 import { Emitter } from './emitter';
 import { InterpretResult } from './enum';
+import { Environment } from './environment';
 import { Parser } from './parser';
 import { Scanner } from './scanner';
-import { VM } from './vm';
+import { VirtualMachine } from './vm';
 
-export function interpret(source: string): InterpretResult {
+export function interpret(source: string, environment: Environment = new Environment()): InterpretResult {
   const chunk = new Chunk();
   const scanner = new Scanner();
   const debugUtil = new DebugUtil(chunk);
@@ -19,7 +20,7 @@ export function interpret(source: string): InterpretResult {
     return InterpretResult.COMPILE_ERROR;
   }
 
-  const vm = new VM(chunk, debugUtil);
+  const vm = new VirtualMachine(chunk, debugUtil, environment);
   vm.initVM();
   const result = vm.run();
 
