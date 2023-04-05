@@ -24,6 +24,10 @@ export class DebugUtil {
         return this.simpleInstruction('OP_FALSE', offset, message);
       case OpCode.OP_EQUAL:
         return this.simpleInstruction('OP_EQUAL', offset, message);
+      case OpCode.OP_GET_GLOBAL:
+        return this.constantInstruction('OP_GET_GLOBAL', offset, message);
+      case OpCode.OP_DEFINE_GLOBAL:
+        return this.constantInstruction('OP_DEFINE_GLOBAL', offset, message);
       case OpCode.OP_GREATER:
         return this.simpleInstruction('OP_GREATER', offset, message);
       case OpCode.OP_LESS:

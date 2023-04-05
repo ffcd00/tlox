@@ -30,9 +30,22 @@ export class Emitter {
     return index;
   }
 
-  private makeConstant(value: Value): number {
+  /**
+   * The function adds a value to the constant pool.
+   * @param value The value to be added to the constant pool.
+   * @returns The index of that constant in the constant pool.
+   */
+  public makeConstant(value: Value): number {
     const constant = this.chunk.addConstant(value);
 
     return constant;
+  }
+
+  /**
+   * Emit DEFINE_GLOBAL Opcode
+   * @param The index of the variable’s name in the constant pool
+   */
+  public defineVariable(global: number): void {
+    this.emitBytes(OpCode.OP_DEFINE_GLOBAL, global);
   }
 }

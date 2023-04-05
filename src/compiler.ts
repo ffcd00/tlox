@@ -112,6 +112,20 @@ export class Compiler {
     }
   }
 
+  /**
+   * Taking the given identifier token and add its lexeme to
+   * the chunk’s constant table as a string.
+   * @param name The name of the declared variable.
+   */
+  private namedVariable(source: string, name: Token): void {
+    const arg = this.identifierConstant(source, name);
+    this.emitter.emitBytes(OpCode.OP_GET_GLOBAL, arg);
+  }
+
+  private variable(source: string): void {
+    this.namedVariable(source, this.parser.previous);
+  }
+
   private unary(source: string): void {
     const operatorType = this.parser.previous.type;
 
@@ -201,12 +215,55 @@ export class Compiler {
     }
   }
 
+  /**
+   * The function takes the given token and adds its lexeme to
+   * the chunk’s constant table as a string
+   * @param source
+   * @param name
+   * @returns the index of that constant in the constant pool. -1 if
+   * trying to add `TokenType.ERROR` to the constant pool.
+   */
+  private identifierConstant(source: string, name: Token): number {
+    if (name.type !== TokenType.ERROR) {
+      return this.emitter.makeConstant(
+        objectValue(allocateString(source.substring(name.start, name.start + name.length)))
+      );
+    }
+    return -1;
+  }
+
+  private parseVariable(source: string, errorMessage: string): number {
+    this.consume(source, TokenType.IDENTIFIER, errorMessage);
+    return this.identifierConstant(source, this.parser.previous);
+  }
+
   private expression(source: string): void {
     this.parsePrecedence(source, Precedence.ASSIGNMENT);
   }
 
+  private varDeclaration(source: string): void {
+    const global = this.parseVariable(source, 'Expect variable name');
+
+    if (this.match(source, TokenType.EQUAL)) {
+      this.expression(source);
+    } else {
+      this.emitter.emitByte(OpCode.OP_NIL);
+    }
+
+    this.consume(source, TokenType.SEMICOLON, "Expect ';' after variable declaration");
+    this.emitter.defineVariable(global);
+  }
+
   private declaration(source: string): void {
-    this.statement(source);
+    if (this.match(source, TokenType.VAR)) {
+      this.varDeclaration(source);
+    } else {
+      this.statement(source);
+    }
+
+    if (this.parser.panicMode) {
+      this.synchronize(source);
+    }
   }
 
   private statement(source: string): void {
@@ -219,6 +276,31 @@ export class Compiler {
     this.expression(source);
     this.consume(source, TokenType.SEMICOLON, "Expect ';' after value.");
     this.emitter.emitByte(OpCode.OP_PRINT);
+  }
+
+  private synchronize(source: string): void {
+    this.parser.panicMode = false;
+
+    while (this.parser.current.type !== TokenType.EOF) {
+      if (this.parser.previous.type === TokenType.SEMICOLON) {
+        return;
+      }
+      switch (this.parser.current.type) {
+        case TokenType.CLASS:
+        case TokenType.FUN:
+        case TokenType.VAR:
+        case TokenType.FOR:
+        case TokenType.IF:
+        case TokenType.WHILE:
+        case TokenType.PRINT:
+        case TokenType.RETURN:
+          return;
+        default:
+        // no-op
+      }
+
+      this.advance(source);
+    }
   }
 
   private error(message: string): void {
@@ -279,7 +361,7 @@ export class Compiler {
     [TokenType.GREATER_EQUAL]: Compiler.makeParseRule(undefined, this.binary, Precedence.COMPARISON),
     [TokenType.LESS]: Compiler.makeParseRule(undefined, this.binary, Precedence.COMPARISON),
     [TokenType.LESS_EQUAL]: Compiler.makeParseRule(undefined, this.binary, Precedence.COMPARISON),
-    [TokenType.IDENTIFIER]: Compiler.makeParseRule(),
+    [TokenType.IDENTIFIER]: Compiler.makeParseRule(this.variable),
     [TokenType.STRING]: Compiler.makeParseRule(this.string),
     [TokenType.NUMBER]: Compiler.makeParseRule(this.number),
     [TokenType.AND]: Compiler.makeParseRule(),

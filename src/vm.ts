@@ -29,6 +29,11 @@ export class VirtualMachine {
   private readonly stack: Value[] = new Array<Value>(STACK_MAX);
 
   /**
+   * Global variables in the VM
+   */
+  private readonly globals: Map<string, Value> = new Map<string, Value>();
+
+  /**
    * `strings` is a mapping between computed string constants and
    * the corresponding `ObjectString` for string interning in runtime.
    */
@@ -67,6 +72,24 @@ export class VirtualMachine {
           case OpCode.OP_FALSE:
             this.push(booleanValue(false));
             break;
+          case OpCode.OP_GET_GLOBAL: {
+            const name = this.readString().chars;
+
+            let value: Value | undefined;
+            if ((value = this.globals.get(name))) {
+              this.push(value);
+            } else {
+              this.runtimeError(`Undefined variable ${name}`);
+              return InterpretResult.RUNTIME_ERROR;
+            }
+            break;
+          }
+          case OpCode.OP_DEFINE_GLOBAL: {
+            const name = this.readString();
+            this.globals.set(name.chars, this.peek());
+            this.pop();
+            break;
+          }
           case OpCode.OP_EQUAL: {
             const b = this.pop();
             const a = this.pop();
@@ -137,6 +160,10 @@ export class VirtualMachine {
 
   private readConstant(): Value {
     return this.chunk.constants[this.readByte()];
+  }
+
+  private readString(): ObjectString {
+    return asString(this.readConstant());
   }
 
   private push(value: Value): void {

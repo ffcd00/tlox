@@ -18,6 +18,7 @@
     "no-unused-vars": "off",
     "no-useless-constructor": "off",
     "no-empty-function": "off",
+    "no-cond-assign": "off",
     "default-case": "off",
     "comma-dangle": "off",
     "operator-linebreak": "off",
