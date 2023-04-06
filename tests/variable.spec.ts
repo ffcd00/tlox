@@ -28,4 +28,22 @@ describe('test global variables', () => {
     expect(result).toEqual(InterpretResult.OK);
     expect(stdout).toHaveBeenNthCalledWith(1, 'beignets with cafe au lait');
   });
+
+  test('global variables assignment', () => {
+    // arrange
+    const source = `
+      var breakfast = "beignets";
+      var beverage = "cafe au lait";
+      breakfast = "beignets with " + beverage;
+
+      print breakfast;
+    `;
+
+    // act
+    const result = interpret(source);
+
+    // assert
+    expect(result).toEqual(InterpretResult.OK);
+    expect(stdout).toHaveBeenNthCalledWith(1, 'beignets with cafe au lait');
+  });
 });

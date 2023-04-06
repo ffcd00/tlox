@@ -7,7 +7,7 @@ import { Parser } from './parser';
 import { Scanner, Token } from './scanner';
 import { numberValue, objectValue, Value } from './value';
 
-type ParseFn = (source: string) => void;
+type ParseFn = (source: string, canAssign: boolean) => void;
 
 interface ParseRule {
   prefix: ParseFn | undefined;
@@ -117,13 +117,19 @@ export class Compiler {
    * the chunk’s constant table as a string.
    * @param name The name of the declared variable.
    */
-  private namedVariable(source: string, name: Token): void {
+  private namedVariable(source: string, name: Token, canAssign: boolean): void {
     const arg = this.identifierConstant(source, name);
-    this.emitter.emitBytes(OpCode.OP_GET_GLOBAL, arg);
+
+    if (canAssign && this.match(source, TokenType.EQUAL)) {
+      this.expression(source);
+      this.emitter.emitBytes(OpCode.OP_SET_GLOBAL, arg);
+    } else {
+      this.emitter.emitBytes(OpCode.OP_GET_GLOBAL, arg);
+    }
   }
 
-  private variable(source: string): void {
-    this.namedVariable(source, this.parser.previous);
+  private variable(source: string, canAssign: boolean): void {
+    this.namedVariable(source, this.parser.previous, canAssign);
   }
 
   private unary(source: string): void {
@@ -203,14 +209,19 @@ export class Compiler {
       return;
     }
 
-    Reflect.apply(prefixRule, this, [source]);
+    const canAssign = precedence <= Precedence.ASSIGNMENT;
+    Reflect.apply(prefixRule, this, [source, canAssign]);
 
     while (precedence <= this.getRule(this.parser.current.type).precedence) {
       this.advance(source);
       const infixRule = this.getRule(this.parser.previous.type).infix;
 
       if (infixRule !== undefined) {
-        Reflect.apply(infixRule, this, [source]);
+        Reflect.apply(infixRule, this, [source, canAssign]);
+      }
+
+      if (canAssign && this.match(source, TokenType.EQUAL)) {
+        this.error('Invalid assignment target.');
       }
     }
   }
@@ -269,6 +280,8 @@ export class Compiler {
   private statement(source: string): void {
     if (this.match(source, TokenType.PRINT)) {
       this.printStatement(source);
+    } else {
+      this.expressionStatement(source);
     }
   }
 
@@ -276,6 +289,12 @@ export class Compiler {
     this.expression(source);
     this.consume(source, TokenType.SEMICOLON, "Expect ';' after value.");
     this.emitter.emitByte(OpCode.OP_PRINT);
+  }
+
+  private expressionStatement(source: string): void {
+    this.expression(source);
+    this.consume(source, TokenType.SEMICOLON, "Expect ';' after expression.");
+    this.emitter.emitByte(OpCode.OP_POP);
   }
 
   private synchronize(source: string): void {

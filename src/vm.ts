@@ -72,6 +72,9 @@ export class VirtualMachine {
           case OpCode.OP_FALSE:
             this.push(booleanValue(false));
             break;
+          case OpCode.OP_POP:
+            this.pop();
+            break;
           case OpCode.OP_GET_GLOBAL: {
             const name = this.readString().chars;
 
@@ -88,6 +91,18 @@ export class VirtualMachine {
             const name = this.readString();
             this.globals.set(name.chars, this.peek());
             this.pop();
+            break;
+          }
+          case OpCode.OP_SET_GLOBAL: {
+            const name = this.readString().chars;
+
+            if (!this.globals.has(name)) {
+              this.globals.delete(name);
+              this.runtimeError(`Undefined variable ${name}`);
+              return InterpretResult.RUNTIME_ERROR;
+            }
+
+            this.globals.set(name, this.peek());
             break;
           }
           case OpCode.OP_EQUAL: {
