@@ -40,12 +40,4 @@ export class Emitter {
 
     return constant;
   }
-
-  /**
-   * Emit DEFINE_GLOBAL Opcode
-   * @param The index of the variable’s name in the constant pool
-   */
-  public defineVariable(global: number): void {
-    this.emitBytes(OpCode.OP_DEFINE_GLOBAL, global);
-  }
 }

@@ -1,4 +1,5 @@
 import type { Chunk } from './chunk';
+import { UINT8_COUNT } from './common';
 import { Emitter } from './emitter';
 import { OpCode, Precedence, TokenType } from './enum';
 import { Environment } from './environment';
@@ -17,6 +18,17 @@ interface ParseRule {
   precedence: Precedence;
 }
 
+class Local {
+  public name: Token;
+
+  public depth: number;
+
+  constructor(name: Token, depth: number) {
+    this.name = name;
+    this.depth = depth;
+  }
+}
+
 export class Compiler {
   /**
    * `strings` is a mapping between declared string constants and
@@ -24,6 +36,12 @@ export class Compiler {
    * useful for string interning in compile time.
    */
   private readonly strings: Map<string, number>;
+
+  private readonly locals: Array<Local>;
+
+  private localCount: number;
+
+  private scopeDepth: number;
 
   constructor(
     private readonly chunk: Chunk,
@@ -33,6 +51,9 @@ export class Compiler {
     private readonly environment: Environment
   ) {
     this.strings = new Map<string, number>();
+    this.locals = new Array<Local>(UINT8_COUNT + 1);
+    this.localCount = 0;
+    this.scopeDepth = 0;
   }
 
   public compile(source: string): boolean {
@@ -118,13 +139,23 @@ export class Compiler {
    * @param name The name of the declared variable.
    */
   private namedVariable(source: string, name: Token, canAssign: boolean): void {
-    const arg = this.identifierConstant(source, name);
+    let arg = this.resolveLocal(source, name);
+    let getOp: OpCode;
+    let setOp: OpCode;
+    if (arg !== -1) {
+      getOp = OpCode.OP_GET_LOCAL;
+      setOp = OpCode.OP_SET_LOCAL;
+    } else {
+      arg = this.identifierConstant(source, name);
+      getOp = OpCode.OP_GET_GLOBAL;
+      setOp = OpCode.OP_SET_GLOBAL;
+    }
 
     if (canAssign && this.match(source, TokenType.EQUAL)) {
       this.expression(source);
-      this.emitter.emitBytes(OpCode.OP_SET_GLOBAL, arg);
+      this.emitter.emitBytes(setOp, arg);
     } else {
-      this.emitter.emitBytes(OpCode.OP_GET_GLOBAL, arg);
+      this.emitter.emitBytes(getOp, arg);
     }
   }
 
@@ -243,13 +274,110 @@ export class Compiler {
     return -1;
   }
 
+  /**
+   * Check if two identifiers are the same
+   * @param a Token
+   * @param b Token
+   */
+  private static identifiersEqual(source: string, a: Token, b: Token): boolean {
+    if (a.type !== TokenType.ERROR && b.type !== TokenType.ERROR) {
+      if (
+        a.length === b.length &&
+        source.substring(a.start, a.start + a.length) === source.substring(b.start, b.start + b.length)
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private resolveLocal(source: string, name: Token): number {
+    for (let i = this.localCount - 1; i >= 0; i -= 1) {
+      const local = this.locals[i];
+      if (Compiler.identifiersEqual(source, name, local.name)) {
+        if (local.depth === -1) {
+          this.error("Can't read local variable in its own initializer.");
+        }
+        return i;
+      }
+    }
+
+    return -1;
+  }
+
+  private addLocal(name: Token): void {
+    if (this.localCount === UINT8_COUNT) {
+      this.error('Too many local variables in function.');
+      return;
+    }
+
+    const local = new Local(name, -1);
+    this.locals[this.localCount] = local;
+    this.localCount += 1;
+  }
+
+  private declareVariable(source: string): void {
+    if (this.scopeDepth === 0) {
+      return;
+    }
+
+    const name = this.parser.previous;
+
+    for (let i = this.localCount - 1; i >= 0; i -= 1) {
+      const local = this.locals[i];
+      if (local.depth !== -1 && local.depth < this.scopeDepth) {
+        break;
+      }
+
+      if (Compiler.identifiersEqual(source, name, local.name)) {
+        this.error('Already a variable with this name in this scope.');
+      }
+    }
+
+    this.addLocal(name);
+  }
+
+  /**
+   *
+   * @param The index of the variable’s name in the constant pool
+   */
+  public defineVariable(global: number): void {
+    if (this.scopeDepth > 0) {
+      this.markInitialized();
+      return;
+    }
+    this.emitter.emitBytes(OpCode.OP_DEFINE_GLOBAL, global);
+  }
+
   private parseVariable(source: string, errorMessage: string): number {
     this.consume(source, TokenType.IDENTIFIER, errorMessage);
+
+    this.declareVariable(source);
+    if (this.scopeDepth > 0) {
+      /**
+       * variable is declared in a local scope and there's no need
+       * to add variable's name to the constant pool.
+       */
+      return 0;
+    }
+
     return this.identifierConstant(source, this.parser.previous);
+  }
+
+  private markInitialized(): void {
+    this.locals[this.localCount - 1].depth = this.scopeDepth;
   }
 
   private expression(source: string): void {
     this.parsePrecedence(source, Precedence.ASSIGNMENT);
+  }
+
+  private block(source: string): void {
+    while (!this.check(TokenType.RIGHT_BRACE) && !this.check(TokenType.EOF)) {
+      this.declaration(source);
+    }
+
+    this.consume(source, TokenType.RIGHT_BRACE, "Expect '}' after block.");
   }
 
   private varDeclaration(source: string): void {
@@ -262,7 +390,8 @@ export class Compiler {
     }
 
     this.consume(source, TokenType.SEMICOLON, "Expect ';' after variable declaration");
-    this.emitter.defineVariable(global);
+
+    this.defineVariable(global);
   }
 
   private declaration(source: string): void {
@@ -280,6 +409,10 @@ export class Compiler {
   private statement(source: string): void {
     if (this.match(source, TokenType.PRINT)) {
       this.printStatement(source);
+    } else if (this.match(source, TokenType.LEFT_BRACE)) {
+      this.beginScope();
+      this.block(source);
+      this.endScope();
     } else {
       this.expressionStatement(source);
     }
@@ -295,6 +428,19 @@ export class Compiler {
     this.expression(source);
     this.consume(source, TokenType.SEMICOLON, "Expect ';' after expression.");
     this.emitter.emitByte(OpCode.OP_POP);
+  }
+
+  private beginScope(): void {
+    this.scopeDepth += 1;
+  }
+
+  private endScope(): void {
+    this.scopeDepth -= 1;
+
+    while (this.localCount > 0 && this.locals[this.localCount - 1].depth > this.scopeDepth) {
+      this.emitter.emitByte(OpCode.OP_POP);
+      this.localCount -= 1;
+    }
   }
 
   private synchronize(source: string): void {

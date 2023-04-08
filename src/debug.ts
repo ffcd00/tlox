@@ -26,6 +26,10 @@ export class DebugUtil {
         return this.simpleInstruction('OP_POP', offset, message);
       case OpCode.OP_EQUAL:
         return this.simpleInstruction('OP_EQUAL', offset, message);
+      case OpCode.OP_GET_LOCAL:
+        return this.byteInstruction('OP_GET_LOCAL', offset, message);
+      case OpCode.OP_SET_LOCAL:
+        return this.byteInstruction('OP_SET_LOCAL', offset, message);
       case OpCode.OP_GET_GLOBAL:
         return this.constantInstruction('OP_GET_GLOBAL', offset, message);
       case OpCode.OP_DEFINE_GLOBAL:
@@ -67,6 +71,12 @@ export class DebugUtil {
   private simpleInstruction(name: keyof typeof OpCode, offset: number, message: string): number {
     console.log(`${message} ${name.padEnd(OP_NAME_PADDING, ' ')}`);
     return offset + 1;
+  }
+
+  private byteInstruction(name: keyof typeof OpCode, offset: number, message: string): number {
+    const slot = this.chunk.code[offset + 1];
+    console.log(`${message} ${name.padEnd(OP_NAME_PADDING, ' ')} ${slot}`);
+    return offset + 2;
   }
 
   private constantInstruction(name: keyof typeof OpCode, offset: number, message: string): number {

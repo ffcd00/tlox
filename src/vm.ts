@@ -75,6 +75,16 @@ export class VirtualMachine {
           case OpCode.OP_POP:
             this.pop();
             break;
+          case OpCode.OP_GET_LOCAL: {
+            const slot = this.readByte();
+            this.push(this.stack[slot]);
+            break;
+          }
+          case OpCode.OP_SET_LOCAL: {
+            const slot = this.readByte();
+            this.stack[slot] = this.peek();
+            break;
+          }
           case OpCode.OP_GET_GLOBAL: {
             const name = this.readString().chars;
 
@@ -82,7 +92,7 @@ export class VirtualMachine {
             if ((value = this.globals.get(name))) {
               this.push(value);
             } else {
-              this.runtimeError(`Undefined variable ${name}`);
+              this.runtimeError(`Undefined variable '${name}'`);
               return InterpretResult.RUNTIME_ERROR;
             }
             break;
@@ -201,7 +211,8 @@ export class VirtualMachine {
   }
 
   private runtimeError(message: string): void {
-    console.log(message);
+    this.environment.stderr(`runtime error: ${message}`);
+    this.environment.stderr('\n');
     this.resetStack();
   }
 
