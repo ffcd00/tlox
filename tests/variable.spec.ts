@@ -352,20 +352,18 @@ describe('test local variables', () => {
     expect(stdout).toHaveBeenNthCalledWith(1, 'nil');
   });
 
-  test('uninitialized', () => {
-    // arrange
-    const source = `
-      if (false) {
-        print notDefined;
-      }
-      
-      print "ok"; // expect: ok
-    `;
-
-    // act
+  test('unreached undefined', () => {
+    // TODO: restore when control flow is ready
+    // // arrange
+    // const source = `
+    //   if (false) {
+    //     print notDefined;
+    //   }
+    //   print "ok"; // expect: ok
+    // `;
+    // // act
     // const result = interpret(source);
-
-    // assert
+    // // assert
     // expect(result).toEqual(InterpretResult.OK);
     // expect(stdout).toHaveBeenNthCalledWith(1, 'ok');
   });
