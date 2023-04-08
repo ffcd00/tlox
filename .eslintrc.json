@@ -19,6 +19,7 @@
     "no-useless-constructor": "off",
     "no-empty-function": "off",
     "no-cond-assign": "off",
+    "no-bitwise": "off",
     "default-case": "off",
     "comma-dangle": "off",
     "operator-linebreak": "off",
