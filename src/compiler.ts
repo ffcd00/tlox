@@ -353,6 +353,26 @@ export class Compiler {
     this.emitter.emitBytes(OpCode.OP_DEFINE_GLOBAL, global);
   }
 
+  private and(): void {
+    const endJump = this.emitter.emitJump(OpCode.OP_JUMP_IF_FALSE);
+
+    this.emitter.emitByte(OpCode.OP_POP);
+    this.parsePrecedence(Precedence.AND);
+
+    this.emitter.patchJump(endJump);
+  }
+
+  private or(): void {
+    const elseJump = this.emitter.emitJump(OpCode.OP_JUMP_IF_FALSE);
+    const endJump = this.emitter.emitJump(OpCode.OP_JUMP);
+
+    this.emitter.patchJump(elseJump);
+    this.emitter.emitByte(OpCode.OP_POP);
+
+    this.parsePrecedence(Precedence.OR);
+    this.emitter.patchJump(endJump);
+  }
+
   private parseVariable(errorMessage: string): number {
     this.consume(TokenType.IDENTIFIER, errorMessage);
 
@@ -489,10 +509,12 @@ export class Compiler {
 
     if (token.type === TokenType.EOF) {
       this.environment.stderr(`[line ${token.line}] Error at end: ${message}`);
+      this.environment.stderr('\n');
     } else if (token.type === TokenType.ERROR) {
       // no-op
     } else {
       this.environment.stderr(`[line ${token.line}] Error: ${message}`);
+      this.environment.stderr('\n');
     }
 
     this.parser.hadError = true;
@@ -533,7 +555,7 @@ export class Compiler {
     [TokenType.IDENTIFIER]: Compiler.makeParseRule(this.variable),
     [TokenType.STRING]: Compiler.makeParseRule(this.string),
     [TokenType.NUMBER]: Compiler.makeParseRule(this.number),
-    [TokenType.AND]: Compiler.makeParseRule(),
+    [TokenType.AND]: Compiler.makeParseRule(undefined, this.and, Precedence.AND),
     [TokenType.CLASS]: Compiler.makeParseRule(),
     [TokenType.ELSE]: Compiler.makeParseRule(),
     [TokenType.FALSE]: Compiler.makeParseRule(this.literal),
@@ -541,7 +563,7 @@ export class Compiler {
     [TokenType.FUN]: Compiler.makeParseRule(),
     [TokenType.IF]: Compiler.makeParseRule(),
     [TokenType.NIL]: Compiler.makeParseRule(this.literal),
-    [TokenType.OR]: Compiler.makeParseRule(),
+    [TokenType.OR]: Compiler.makeParseRule(undefined, this.or, Precedence.OR),
     [TokenType.PRINT]: Compiler.makeParseRule(),
     [TokenType.RETURN]: Compiler.makeParseRule(),
     [TokenType.SUPER]: Compiler.makeParseRule(),

@@ -164,6 +164,18 @@ export class VirtualMachine {
             this.environment.stdout('\n');
             break;
           }
+          case OpCode.OP_JUMP_IF_FALSE: {
+            const offset = this.readShort();
+            if (isFalsy(this.peek())) {
+              this.instructionIndex += offset;
+            }
+            break;
+          }
+          case OpCode.OP_LOOP: {
+            const offset = this.readShort();
+            this.instructionIndex -= offset;
+            break;
+          }
           case OpCode.OP_RETURN:
             return InterpretResult.OK;
         }
@@ -185,6 +197,18 @@ export class VirtualMachine {
 
   private readConstant(): Value {
     return this.chunk.constants[this.readByte()];
+  }
+
+  /**
+   * reads the next two bytes from the chunk and builds a 16-bit
+   * integer out of them
+   * @returns
+   */
+  private readShort(): number {
+    const a = this.chunk.code[this.instructionIndex];
+    const b = this.chunk.code[this.instructionIndex + 1];
+    this.instructionIndex += 2;
+    return (a << 8) | b;
   }
 
   private readString(): ObjectString {

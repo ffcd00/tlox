@@ -31,6 +31,18 @@ export class Emitter {
   }
 
   /**
+   * emits a bytecode instruction and writes a placeholder operand
+   * for the jump offset.
+   * @param instruction `OpCode`
+   * @returns the offset of the emitted instruction in the chunk
+   */
+  public emitJump(instruction: OpCode): number {
+    this.emitByte(instruction);
+    this.emitByte(<OpCode>0xff);
+    this.emitByte(<OpCode>0xff);
+    return this.chunk.code.length - 2;
+  }
+  /**
    * The function adds a value to the constant pool.
    * @param value The value to be added to the constant pool.
    * @returns The index of that constant in the constant pool.
@@ -39,5 +51,19 @@ export class Emitter {
     const constant = this.chunk.addConstant(value);
 
     return constant;
+  }
+  /**
+   * replaces the operand at the given location with the calculated
+   * jump offset
+   * @param offset
+   */
+  public patchJump(offset: number): void {
+    // -2 to adjust for the bytecode for the jump offset itself.
+    const jump = this.chunk.code.length - offset - 2;
+
+    // TODO: sanity check if offset if greater than 0xffff
+
+    this.chunk.code[offset] = (jump >> 8) & 0xff;
+    this.chunk.code[offset + 1] = jump & 0xff;
   }
 }
