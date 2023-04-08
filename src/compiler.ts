@@ -1,4 +1,3 @@
-import type { Chunk } from './chunk';
 import { UINT8_COUNT } from './common';
 import { Emitter } from './emitter';
 import { OpCode, Precedence, TokenType } from './enum';
@@ -6,7 +5,7 @@ import { Environment } from './environment';
 import { allocateString } from './object';
 import { Parser } from './parser';
 import { Scanner, Token } from './scanner';
-import { numberValue, objectValue, Value } from './value';
+import { numberValue, objectValue } from './value';
 
 type ParseFn = (canAssign: boolean) => void;
 
@@ -46,7 +45,6 @@ export class Compiler {
   private scopeDepth: number;
 
   constructor(
-    private readonly chunk: Chunk,
     private readonly scanner: Scanner,
     private readonly parser: Parser,
     private readonly emitter: Emitter,
