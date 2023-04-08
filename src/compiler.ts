@@ -8,7 +8,7 @@ import { Parser } from './parser';
 import { Scanner, Token } from './scanner';
 import { numberValue, objectValue, Value } from './value';
 
-type ParseFn = (source: string, canAssign: boolean) => void;
+type ParseFn = (canAssign: boolean) => void;
 
 interface ParseRule {
   prefix: ParseFn | undefined;
@@ -30,6 +30,8 @@ class Local {
 }
 
 export class Compiler {
+  private source!: string;
+
   /**
    * `strings` is a mapping between declared string constants and
    * their corresponding indices in the constant pool, which is
@@ -57,21 +59,22 @@ export class Compiler {
   }
 
   public compile(source: string): boolean {
-    this.advance(source);
+    this.source = source;
+    this.advance();
 
-    while (!this.match(source, TokenType.EOF)) {
-      this.declaration(source);
+    while (!this.match(TokenType.EOF)) {
+      this.declaration();
     }
 
     this.endCompiler();
     return !this.parser.hadError;
   }
 
-  private advance(source: string): void {
+  private advance(): void {
     this.parser.previous = this.parser.current;
 
     for (;;) {
-      this.parser.current = this.scanner.scanToken(source);
+      this.parser.current = this.scanner.scanToken(this.source);
       if (this.parser.current.type !== TokenType.ERROR) {
         break;
       }
@@ -80,9 +83,9 @@ export class Compiler {
     }
   }
 
-  private consume(source: string, type: TokenType, message: string): void {
+  private consume(type: TokenType, message: string): void {
     if (this.parser.current.type === type) {
-      this.advance(source);
+      this.advance();
       return;
     }
 
@@ -93,35 +96,36 @@ export class Compiler {
     return this.parser.current.type === type;
   }
 
-  private match(source: string, type: TokenType): boolean {
+  private match(type: TokenType): boolean {
     if (!this.check(type)) {
       return false;
     }
-    this.advance(source);
+    this.advance();
     return true;
   }
 
   private endCompiler(): void {
     this.emitter.emitReturn();
+    this.source = '';
   }
 
-  private grouping(source: string): void {
-    this.expression(source);
-    this.consume(source, TokenType.RIGHT_PAREN, "Expect ')' after expression");
+  private grouping(): void {
+    this.expression();
+    this.consume(TokenType.RIGHT_PAREN, "Expect ')' after expression");
   }
 
-  private number(source: string): void {
+  private number(): void {
     const token = this.parser.previous;
     if (token.type !== TokenType.ERROR) {
-      const value = parseFloat(source.substring(token.start, token.start + token.length));
+      const value = parseFloat(this.source.substring(token.start, token.start + token.length));
       this.emitter.emitConstant(numberValue(value));
     }
   }
 
-  private string(source: string): void {
+  private string(): void {
     const token = this.parser.previous;
     if (token.type !== TokenType.ERROR) {
-      const sourceString = source.substring(token.start + 1, token.start + token.length - 1);
+      const sourceString = this.source.substring(token.start + 1, token.start + token.length - 1);
       if (this.strings.has(sourceString)) {
         // intern string
         this.emitter.emitBytes(OpCode.OP_CONSTANT, this.strings.get(sourceString)!);
@@ -138,35 +142,35 @@ export class Compiler {
    * the chunk’s constant table as a string.
    * @param name The name of the declared variable.
    */
-  private namedVariable(source: string, name: Token, canAssign: boolean): void {
-    let arg = this.resolveLocal(source, name);
+  private namedVariable(name: Token, canAssign: boolean): void {
+    let arg = this.resolveLocal(name);
     let getOp: OpCode;
     let setOp: OpCode;
     if (arg !== -1) {
       getOp = OpCode.OP_GET_LOCAL;
       setOp = OpCode.OP_SET_LOCAL;
     } else {
-      arg = this.identifierConstant(source, name);
+      arg = this.identifierConstant(name);
       getOp = OpCode.OP_GET_GLOBAL;
       setOp = OpCode.OP_SET_GLOBAL;
     }
 
-    if (canAssign && this.match(source, TokenType.EQUAL)) {
-      this.expression(source);
+    if (canAssign && this.match(TokenType.EQUAL)) {
+      this.expression();
       this.emitter.emitBytes(setOp, arg);
     } else {
       this.emitter.emitBytes(getOp, arg);
     }
   }
 
-  private variable(source: string, canAssign: boolean): void {
-    this.namedVariable(source, this.parser.previous, canAssign);
+  private variable(canAssign: boolean): void {
+    this.namedVariable(this.parser.previous, canAssign);
   }
 
-  private unary(source: string): void {
+  private unary(): void {
     const operatorType = this.parser.previous.type;
 
-    this.parsePrecedence(source, Precedence.UNARY);
+    this.parsePrecedence(Precedence.UNARY);
 
     switch (operatorType) {
       case TokenType.BANG:
@@ -178,10 +182,10 @@ export class Compiler {
     }
   }
 
-  private binary(source: string): void {
+  private binary(): void {
     const operatorType = this.parser.previous.type;
     const rule = this.getRule(operatorType);
-    this.parsePrecedence(source, rule.precedence + 1);
+    this.parsePrecedence(rule.precedence + 1);
 
     switch (operatorType) {
       case TokenType.BANG_EQUAL:
@@ -231,8 +235,8 @@ export class Compiler {
     }
   }
 
-  private parsePrecedence(source: string, precedence: Precedence): void {
-    this.advance(source);
+  private parsePrecedence(precedence: Precedence): void {
+    this.advance();
     const prefixRule = this.getRule(this.parser.previous.type).prefix;
 
     if (prefixRule === undefined) {
@@ -241,17 +245,17 @@ export class Compiler {
     }
 
     const canAssign = precedence <= Precedence.ASSIGNMENT;
-    Reflect.apply(prefixRule, this, [source, canAssign]);
+    Reflect.apply(prefixRule, this, [canAssign]);
 
     while (precedence <= this.getRule(this.parser.current.type).precedence) {
-      this.advance(source);
+      this.advance();
       const infixRule = this.getRule(this.parser.previous.type).infix;
 
       if (infixRule !== undefined) {
-        Reflect.apply(infixRule, this, [source, canAssign]);
+        Reflect.apply(infixRule, this, [canAssign]);
       }
 
-      if (canAssign && this.match(source, TokenType.EQUAL)) {
+      if (canAssign && this.match(TokenType.EQUAL)) {
         this.error('Invalid assignment target.');
       }
     }
@@ -265,10 +269,10 @@ export class Compiler {
    * @returns the index of that constant in the constant pool. -1 if
    * trying to add `TokenType.ERROR` to the constant pool.
    */
-  private identifierConstant(source: string, name: Token): number {
+  private identifierConstant(name: Token): number {
     if (name.type !== TokenType.ERROR) {
       return this.emitter.makeConstant(
-        objectValue(allocateString(source.substring(name.start, name.start + name.length)))
+        objectValue(allocateString(this.source.substring(name.start, name.start + name.length)))
       );
     }
     return -1;
@@ -279,11 +283,11 @@ export class Compiler {
    * @param a Token
    * @param b Token
    */
-  private static identifiersEqual(source: string, a: Token, b: Token): boolean {
+  private identifiersEqual(a: Token, b: Token): boolean {
     if (a.type !== TokenType.ERROR && b.type !== TokenType.ERROR) {
       if (
         a.length === b.length &&
-        source.substring(a.start, a.start + a.length) === source.substring(b.start, b.start + b.length)
+        this.source.substring(a.start, a.start + a.length) === this.source.substring(b.start, b.start + b.length)
       ) {
         return true;
       }
@@ -291,10 +295,10 @@ export class Compiler {
     return false;
   }
 
-  private resolveLocal(source: string, name: Token): number {
+  private resolveLocal(name: Token): number {
     for (let i = this.localCount - 1; i >= 0; i -= 1) {
       const local = this.locals[i];
-      if (Compiler.identifiersEqual(source, name, local.name)) {
+      if (this.identifiersEqual(name, local.name)) {
         if (local.depth === -1) {
           this.error("Can't read local variable in its own initializer.");
         }
@@ -316,7 +320,7 @@ export class Compiler {
     this.localCount += 1;
   }
 
-  private declareVariable(source: string): void {
+  private declareVariable(): void {
     if (this.scopeDepth === 0) {
       return;
     }
@@ -329,7 +333,7 @@ export class Compiler {
         break;
       }
 
-      if (Compiler.identifiersEqual(source, name, local.name)) {
+      if (this.identifiersEqual(name, local.name)) {
         this.error('Already a variable with this name in this scope.');
       }
     }
@@ -341,7 +345,7 @@ export class Compiler {
    *
    * @param The index of the variable’s name in the constant pool
    */
-  public defineVariable(global: number): void {
+  private defineVariable(global: number): void {
     if (this.scopeDepth > 0) {
       this.markInitialized();
       return;
@@ -349,10 +353,10 @@ export class Compiler {
     this.emitter.emitBytes(OpCode.OP_DEFINE_GLOBAL, global);
   }
 
-  private parseVariable(source: string, errorMessage: string): number {
-    this.consume(source, TokenType.IDENTIFIER, errorMessage);
+  private parseVariable(errorMessage: string): number {
+    this.consume(TokenType.IDENTIFIER, errorMessage);
 
-    this.declareVariable(source);
+    this.declareVariable();
     if (this.scopeDepth > 0) {
       /**
        * variable is declared in a local scope and there's no need
@@ -361,72 +365,72 @@ export class Compiler {
       return 0;
     }
 
-    return this.identifierConstant(source, this.parser.previous);
+    return this.identifierConstant(this.parser.previous);
   }
 
   private markInitialized(): void {
     this.locals[this.localCount - 1].depth = this.scopeDepth;
   }
 
-  private expression(source: string): void {
-    this.parsePrecedence(source, Precedence.ASSIGNMENT);
+  private expression(): void {
+    this.parsePrecedence(Precedence.ASSIGNMENT);
   }
 
-  private block(source: string): void {
+  private block(): void {
     while (!this.check(TokenType.RIGHT_BRACE) && !this.check(TokenType.EOF)) {
-      this.declaration(source);
+      this.declaration();
     }
 
-    this.consume(source, TokenType.RIGHT_BRACE, "Expect '}' after block.");
+    this.consume(TokenType.RIGHT_BRACE, "Expect '}' after block.");
   }
 
-  private varDeclaration(source: string): void {
-    const global = this.parseVariable(source, 'Expect variable name');
+  private varDeclaration(): void {
+    const global = this.parseVariable('Expect variable name');
 
-    if (this.match(source, TokenType.EQUAL)) {
-      this.expression(source);
+    if (this.match(TokenType.EQUAL)) {
+      this.expression();
     } else {
       this.emitter.emitByte(OpCode.OP_NIL);
     }
 
-    this.consume(source, TokenType.SEMICOLON, "Expect ';' after variable declaration");
+    this.consume(TokenType.SEMICOLON, "Expect ';' after variable declaration");
 
     this.defineVariable(global);
   }
 
-  private declaration(source: string): void {
-    if (this.match(source, TokenType.VAR)) {
-      this.varDeclaration(source);
+  private declaration(): void {
+    if (this.match(TokenType.VAR)) {
+      this.varDeclaration();
     } else {
-      this.statement(source);
+      this.statement();
     }
 
     if (this.parser.panicMode) {
-      this.synchronize(source);
+      this.synchronize();
     }
   }
 
-  private statement(source: string): void {
-    if (this.match(source, TokenType.PRINT)) {
-      this.printStatement(source);
-    } else if (this.match(source, TokenType.LEFT_BRACE)) {
+  private statement(): void {
+    if (this.match(TokenType.PRINT)) {
+      this.printStatement();
+    } else if (this.match(TokenType.LEFT_BRACE)) {
       this.beginScope();
-      this.block(source);
+      this.block();
       this.endScope();
     } else {
-      this.expressionStatement(source);
+      this.expressionStatement();
     }
   }
 
-  private printStatement(source: string): void {
-    this.expression(source);
-    this.consume(source, TokenType.SEMICOLON, "Expect ';' after value.");
+  private printStatement(): void {
+    this.expression();
+    this.consume(TokenType.SEMICOLON, "Expect ';' after value.");
     this.emitter.emitByte(OpCode.OP_PRINT);
   }
 
-  private expressionStatement(source: string): void {
-    this.expression(source);
-    this.consume(source, TokenType.SEMICOLON, "Expect ';' after expression.");
+  private expressionStatement(): void {
+    this.expression();
+    this.consume(TokenType.SEMICOLON, "Expect ';' after expression.");
     this.emitter.emitByte(OpCode.OP_POP);
   }
 
@@ -443,7 +447,7 @@ export class Compiler {
     }
   }
 
-  private synchronize(source: string): void {
+  private synchronize(): void {
     this.parser.panicMode = false;
 
     while (this.parser.current.type !== TokenType.EOF) {
@@ -464,7 +468,7 @@ export class Compiler {
         // no-op
       }
 
-      this.advance(source);
+      this.advance();
     }
   }
 
