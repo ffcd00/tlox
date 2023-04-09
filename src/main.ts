@@ -10,7 +10,7 @@ import { Parser } from './parser';
 import { Scanner } from './scanner';
 import { VirtualMachine } from './vm';
 
-export function interpret(source: string, environment: Environment = new Environment()): InterpretResult {
+function interpret(source: string, environment: Environment = new Environment()): InterpretResult {
   const chunk = new Chunk();
   const scanner = new Scanner();
   const debugUtil = new DebugUtil(chunk);
@@ -86,4 +86,4 @@ function run(): void {
   }
 }
 
-run();
+export { run, interpret };

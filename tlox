@@ -1,3 +1,5 @@
 #!/usr/bin/env node
 
-require('./build/src/main.js');
+const { run } = require('./build/src/main.js');
+
+run();
