@@ -1,8 +1,3 @@
-import { interpret } from './src';
+import { interpret } from './src/main';
 
-function main(): void {
-  const source = '"abc" + "cd" == "abc" + "cd"';
-  interpret(source);
-}
-
-main();
+export { interpret };

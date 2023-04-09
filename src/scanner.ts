@@ -76,6 +76,12 @@ export class Scanner {
     return this.errorToken('Unexpected characters.');
   }
 
+  public reset(): void {
+    this.start = 0;
+    this.current = 0;
+    this.line = 0;
+  }
+
   private makeToken(type: NormalTokenType): Token {
     const token: Token = {
       type,
