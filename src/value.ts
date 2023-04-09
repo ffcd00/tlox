@@ -81,7 +81,7 @@ export function printValue(value: Value): string {
     case ValueType.NIL:
       return 'nil';
     case ValueType.NUMBER:
-      return String(value.as);
+      return Object.is(value.as, -0) ? '-0' : String(value.as);
     case ValueType.OBJECT:
       return printObject(value);
   }

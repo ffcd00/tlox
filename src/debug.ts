@@ -54,6 +54,12 @@ export class DebugUtil {
         return this.simpleInstruction('OP_NEGATE', offset, message);
       case OpCode.OP_PRINT:
         return this.simpleInstruction('OP_PRINT', offset, message);
+      case OpCode.OP_JUMP:
+        return this.jumpInstruction('OP_JUMP', offset, message, 1);
+      case OpCode.OP_JUMP_IF_FALSE:
+        return this.jumpInstruction('OP_JUMP_IF_FALSE', offset, message, 1);
+      case OpCode.OP_LOOP:
+        return this.jumpInstruction('OP_LOOP', offset, message, -1);
       default:
         console.log(`Unknown opcode ${instruction}`);
         return offset + 1;
@@ -63,7 +69,7 @@ export class DebugUtil {
   public disassembleChunk(name: string): void {
     console.log(`== ${name} ==`);
 
-    for (let offset = 0; offset < this.chunk.code.length; ) {
+    for (let offset = 0; offset < this.chunk.code.length; offset) {
       offset = this.disassembleInstruction(offset);
     }
   }
@@ -77,6 +83,13 @@ export class DebugUtil {
     const slot = this.chunk.code[offset + 1];
     console.log(`${message} ${name.padEnd(OP_NAME_PADDING, ' ')} ${slot}`);
     return offset + 2;
+  }
+
+  private jumpInstruction(name: keyof typeof OpCode, offset: number, message: string, sign: number): number {
+    let jump = this.chunk.code[offset + 1] << 8;
+    jump |= this.chunk.code[offset + 2];
+    console.log(`${message} ${name.padEnd(OP_NAME_PADDING, ' ')} ${offset} -> ${offset + 3 + sign * jump}`);
+    return offset + 3;
   }
 
   private constantInstruction(name: keyof typeof OpCode, offset: number, message: string): number {

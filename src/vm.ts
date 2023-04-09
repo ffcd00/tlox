@@ -155,13 +155,32 @@ export class VirtualMachine {
               this.runtimeError('Operand must be a number');
               return InterpretResult.RUNTIME_ERROR;
             }
-            this.push(numberValue(-asNumber(this.pop())));
+            const number = asNumber(this.pop());
+            const negate = number === 0 ? -0 : -number;
+            this.push(numberValue(negate));
             break;
           }
           case OpCode.OP_PRINT: {
             const value = printValue(this.pop());
             this.environment.stdout(value);
             this.environment.stdout('\n');
+            break;
+          }
+          case OpCode.OP_JUMP_IF_FALSE: {
+            const offset = this.readShort();
+            if (isFalsy(this.peek())) {
+              this.instructionIndex += offset;
+            }
+            break;
+          }
+          case OpCode.OP_JUMP: {
+            const offset = this.readShort();
+            this.instructionIndex += offset;
+            break;
+          }
+          case OpCode.OP_LOOP: {
+            const offset = this.readShort();
+            this.instructionIndex -= offset;
             break;
           }
           case OpCode.OP_RETURN:
@@ -185,6 +204,18 @@ export class VirtualMachine {
 
   private readConstant(): Value {
     return this.chunk.constants[this.readByte()];
+  }
+
+  /**
+   * reads the next two bytes from the chunk and builds a 16-bit
+   * integer out of them
+   * @returns
+   */
+  private readShort(): number {
+    const a = this.chunk.code[this.instructionIndex];
+    const b = this.chunk.code[this.instructionIndex + 1];
+    this.instructionIndex += 2;
+    return (a << 8) | b;
   }
 
   private readString(): ObjectString {
