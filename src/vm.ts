@@ -155,7 +155,9 @@ export class VirtualMachine {
               this.runtimeError('Operand must be a number');
               return InterpretResult.RUNTIME_ERROR;
             }
-            this.push(numberValue(-asNumber(this.pop())));
+            const number = asNumber(this.pop());
+            const negate = number === 0 ? -0 : -number;
+            this.push(numberValue(negate));
             break;
           }
           case OpCode.OP_PRINT: {

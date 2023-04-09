@@ -129,7 +129,7 @@ describe('test global variables', () => {
     expect(result).toEqual(InterpretResult.COMPILE_ERROR);
     expect(stderr).toHaveBeenNthCalledWith(
       1,
-      '[line 3] Error: Expect variable name'
+      "[line 3] Error at 'nil': Expect variable name"
     );
   });
 
@@ -147,7 +147,7 @@ describe('test global variables', () => {
     expect(result).toEqual(InterpretResult.COMPILE_ERROR);
     expect(stderr).toHaveBeenNthCalledWith(
       1,
-      '[line 3] Error: Expect variable name'
+      "[line 3] Error at 'this': Expect variable name"
     );
   });
 });
@@ -182,7 +182,7 @@ describe('test local variables', () => {
     expect(result).toEqual(InterpretResult.COMPILE_ERROR);
     expect(stderr).toHaveBeenNthCalledWith(
       1,
-      '[line 4] Error: Already a variable with this name in this scope.'
+      "[line 4] Error at 'a': Already a variable with this name in this scope."
     );
   });
 
@@ -382,7 +382,7 @@ describe('test local variables', () => {
     expect(result).toEqual(InterpretResult.COMPILE_ERROR);
     expect(stderr).toHaveBeenNthCalledWith(
       1,
-      '[line 3] Error: Expect variable name'
+      "[line 3] Error at 'false': Expect variable name"
     );
   });
 
@@ -402,7 +402,7 @@ describe('test local variables', () => {
     expect(result).toEqual(InterpretResult.COMPILE_ERROR);
     expect(stderr).toHaveBeenNthCalledWith(
       1,
-      "[line 4] Error: Can't read local variable in its own initializer."
+      "[line 4] Error at 'a': Can't read local variable in its own initializer."
     );
   });
 });
