@@ -171,6 +171,11 @@ export class VirtualMachine {
             }
             break;
           }
+          case OpCode.OP_JUMP: {
+            const offset = this.readShort();
+            this.instructionIndex += offset;
+            break;
+          }
           // case OpCode.OP_LOOP: {
           //   const offset = this.readShort();
           //   this.instructionIndex -= offset;
