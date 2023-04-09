@@ -42,6 +42,20 @@ export class Emitter {
     this.emitByte(<OpCode>0xff);
     return this.chunk.code.length - 2;
   }
+
+  public emitLoop(loopStart: number): void {
+    this.emitByte(OpCode.OP_LOOP);
+
+    const offset = this.chunk.code.length - loopStart + 2;
+    if (offset > 0xffff) {
+      // TODO: error: Loop body too large
+      return;
+    }
+
+    this.emitByte((offset >> 8) & 0xff);
+    this.emitByte(offset & 0xff);
+  }
+
   /**
    * The function adds a value to the constant pool.
    * @param value The value to be added to the constant pool.
@@ -52,6 +66,7 @@ export class Emitter {
 
     return constant;
   }
+
   /**
    * replaces the operand at the given location with the calculated
    * jump offset
@@ -65,5 +80,13 @@ export class Emitter {
 
     this.chunk.code[offset] = (jump >> 8) & 0xff;
     this.chunk.code[offset + 1] = jump & 0xff;
+  }
+
+  /**
+   * returns the current index of the last instruction
+   * @returns the current length of the instruction array
+   */
+  public currentInstructionIndex(): number {
+    return this.chunk.code.length;
   }
 }

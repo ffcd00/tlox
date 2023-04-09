@@ -58,6 +58,8 @@ export class DebugUtil {
         return this.jumpInstruction('OP_JUMP', offset, message, 1);
       case OpCode.OP_JUMP_IF_FALSE:
         return this.jumpInstruction('OP_JUMP_IF_FALSE', offset, message, 1);
+      case OpCode.OP_LOOP:
+        return this.jumpInstruction('OP_LOOP', offset, message, -1);
       default:
         console.log(`Unknown opcode ${instruction}`);
         return offset + 1;

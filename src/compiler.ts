@@ -429,14 +429,26 @@ export class Compiler {
   }
 
   private statement(): void {
-    if (this.match(TokenType.PRINT)) {
-      this.printStatement();
-    } else if (this.match(TokenType.LEFT_BRACE)) {
-      this.beginScope();
-      this.block();
-      this.endScope();
-    } else {
-      this.expressionStatement();
+    switch (true) {
+      case this.match(TokenType.PRINT):
+        this.printStatement();
+        break;
+      case this.match(TokenType.FOR):
+        this.forStatement();
+        break;
+      case this.match(TokenType.IF):
+        this.ifStatement();
+        break;
+      case this.match(TokenType.WHILE):
+        this.whileStatement();
+        break;
+      case this.match(TokenType.LEFT_BRACE):
+        this.beginScope();
+        this.block();
+        this.endScope();
+        break;
+      default:
+        this.expressionStatement();
     }
   }
 
@@ -448,8 +460,94 @@ export class Compiler {
 
   private expressionStatement(): void {
     this.expression();
-    this.consume(TokenType.SEMICOLON, "Expect ';' after expression.");
+    this.consume(TokenType.SEMICOLON, "Expect ';' after expression");
     this.emitter.emitByte(OpCode.OP_POP);
+  }
+
+  private ifStatement(): void {
+    this.consume(TokenType.LEFT_PAREN, "Expect '(' after if");
+    this.expression();
+    this.consume(TokenType.RIGHT_PAREN, "Expect ')' after condition");
+
+    const thenJump = this.emitter.emitJump(OpCode.OP_JUMP_IF_FALSE);
+    this.emitter.emitByte(OpCode.OP_POP);
+    this.statement();
+
+    const elseJump = this.emitter.emitJump(OpCode.OP_JUMP);
+
+    this.emitter.patchJump(thenJump);
+    this.emitter.emitByte(OpCode.OP_POP);
+
+    if (this.match(TokenType.ELSE)) {
+      this.statement();
+    }
+
+    this.emitter.patchJump(elseJump);
+  }
+
+  private whileStatement(): void {
+    const loopStart = this.emitter.currentInstructionIndex();
+    this.consume(TokenType.LEFT_PAREN, "Expect '(' after while");
+    this.expression();
+    this.consume(TokenType.RIGHT_PAREN, "Expect ')' after condition");
+
+    const exitJump = this.emitter.emitJump(OpCode.OP_JUMP_IF_FALSE);
+    this.emitter.emitByte(OpCode.OP_POP);
+    this.statement();
+    this.emitter.emitLoop(loopStart);
+
+    this.emitter.patchJump(exitJump);
+    this.emitter.emitByte(OpCode.OP_POP);
+  }
+
+  private forStatement(): void {
+    this.beginScope();
+    this.consume(TokenType.LEFT_PAREN, "Expect '(' after 'for'");
+
+    // initializer clause
+    if (this.match(TokenType.SEMICOLON)) {
+      // No initializer
+    } else if (this.match(TokenType.VAR)) {
+      this.varDeclaration();
+    } else {
+      this.expressionStatement();
+    }
+
+    let loopStart = this.emitter.currentInstructionIndex();
+    let exitJump = -1;
+
+    // condition clause
+    if (!this.match(TokenType.SEMICOLON)) {
+      this.expression();
+      this.consume(TokenType.SEMICOLON, "Expect ';' after loop condition");
+
+      // jump out of the loop if the condition if false
+      exitJump = this.emitter.emitJump(OpCode.OP_JUMP_IF_FALSE);
+      this.emitter.emitByte(OpCode.OP_POP);
+    }
+
+    // increment clause
+    if (!this.match(TokenType.RIGHT_PAREN)) {
+      const bodyJump = this.emitter.emitJump(OpCode.OP_JUMP);
+      const incrementStart = this.emitter.currentInstructionIndex();
+      this.expression();
+      this.emitter.emitByte(OpCode.OP_POP);
+      this.consume(TokenType.RIGHT_PAREN, "Expect ')' after for clauses");
+
+      this.emitter.emitLoop(loopStart);
+      loopStart = incrementStart;
+      this.emitter.patchJump(bodyJump);
+    }
+
+    this.statement();
+    this.emitter.emitLoop(loopStart);
+
+    if (exitJump !== -1) {
+      this.emitter.patchJump(exitJump);
+      this.emitter.emitByte(OpCode.OP_POP);
+    }
+
+    this.endScope();
   }
 
   private beginScope(): void {
@@ -511,7 +609,9 @@ export class Compiler {
     } else if (token.type === TokenType.ERROR) {
       // no-op
     } else {
-      this.environment.stderr(`[line ${token.line}] Error: ${message}`);
+      this.environment.stderr(
+        `[line ${token.line}] Error at '${this.source.substring(token.start, token.start + token.length)}': ${message}`
+      );
       this.environment.stderr('\n');
     }
 
