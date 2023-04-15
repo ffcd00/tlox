@@ -4,10 +4,13 @@ import { Parser } from './parser';
 import { Value } from './value';
 
 export class Emitter {
-  constructor(private readonly chunk: Chunk, private readonly parser: Parser) {}
+  private chunk: Chunk | undefined;
+
+  constructor(private readonly parser: Parser) {}
 
   public emitByte(byte: OpCode): void {
-    this.chunk.writeChunk(byte, this.parser.previous.line);
+    const chunk = this.getCurrentChunk();
+    chunk.writeChunk(byte, this.parser.previous.line);
   }
 
   public emitBytes(byte1: OpCode, byte2: OpCode): void {
@@ -40,13 +43,15 @@ export class Emitter {
     this.emitByte(instruction);
     this.emitByte(<OpCode>0xff);
     this.emitByte(<OpCode>0xff);
-    return this.chunk.code.length - 2;
+    const chunk = this.getCurrentChunk();
+    return chunk.code.length - 2;
   }
 
   public emitLoop(loopStart: number): void {
     this.emitByte(OpCode.OP_LOOP);
 
-    const offset = this.chunk.code.length - loopStart + 2;
+    const chunk = this.getCurrentChunk();
+    const offset = chunk.code.length - loopStart + 2;
     if (offset > 0xffff) {
       // TODO: error: Loop body too large
       return;
@@ -62,7 +67,8 @@ export class Emitter {
    * @returns The index of that constant in the constant pool.
    */
   public makeConstant(value: Value): number {
-    const constant = this.chunk.addConstant(value);
+    const chunk = this.getCurrentChunk();
+    const constant = chunk.addConstant(value);
 
     return constant;
   }
@@ -74,12 +80,13 @@ export class Emitter {
    */
   public patchJump(offset: number): void {
     // -2 to adjust for the bytecode for the jump offset itself.
-    const jump = this.chunk.code.length - offset - 2;
+    const chunk = this.getCurrentChunk();
+    const jump = chunk.code.length - offset - 2;
 
     // TODO: sanity check if offset if greater than 0xffff
 
-    this.chunk.code[offset] = (jump >> 8) & 0xff;
-    this.chunk.code[offset + 1] = jump & 0xff;
+    chunk.code[offset] = (jump >> 8) & 0xff;
+    chunk.code[offset + 1] = jump & 0xff;
   }
 
   /**
@@ -87,6 +94,18 @@ export class Emitter {
    * @returns the current length of the instruction array
    */
   public currentInstructionIndex(): number {
-    return this.chunk.code.length;
+    const chunk = this.getCurrentChunk();
+    return chunk.code.length;
+  }
+
+  public setCurrentChunk(chunk: Chunk): void {
+    this.chunk = chunk;
+  }
+
+  public getCurrentChunk(): Chunk {
+    if (this.chunk === undefined) {
+      throw new Error('Chunk has not been initialized');
+    }
+    return this.chunk;
   }
 }

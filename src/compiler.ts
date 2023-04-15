@@ -1,8 +1,9 @@
+import { Chunk } from './chunk';
 import { UINT8_COUNT } from './common';
 import { Emitter } from './emitter';
-import { OpCode, Precedence, TokenType } from './enum';
+import { FunctionType, OpCode, Precedence, TokenType } from './enum';
 import { Environment } from './environment';
-import { allocateString } from './object';
+import { allocateString, ObjectFunction } from './object';
 import { Parser } from './parser';
 import { Scanner, Token } from './scanner';
 import { numberValue, objectValue } from './value';
@@ -44,6 +45,10 @@ export class Compiler {
 
   private scopeDepth: number;
 
+  private func: ObjectFunction;
+
+  private funcType: FunctionType;
+
   constructor(
     private readonly scanner: Scanner,
     private readonly parser: Parser,
@@ -54,9 +59,12 @@ export class Compiler {
     this.locals = new Array<Local>(UINT8_COUNT + 1);
     this.localCount = 0;
     this.scopeDepth = 0;
+    this.funcType = FunctionType.SCRIPT;
+    this.func = new ObjectFunction(0, new Chunk(), allocateString(''));
+    this.emitter.setCurrentChunk(this.func.chunk);
   }
 
-  public compile(source: string): boolean {
+  public compile(source: string): ObjectFunction | null {
     this.source = source;
     this.advance();
 
@@ -65,7 +73,7 @@ export class Compiler {
     }
 
     this.endCompiler();
-    return !this.parser.hadError;
+    return !this.parser.hadError ? this.func : null;
   }
 
   private advance(): void {

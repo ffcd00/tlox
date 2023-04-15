@@ -15,16 +15,18 @@ function interpret(source: string, environment: Environment = new Environment())
   const scanner = new Scanner();
   const debugUtil = new DebugUtil(chunk);
   const parser = new Parser();
-  const emitter = new Emitter(chunk, parser);
+  const emitter = new Emitter(parser);
   const compiler = new Compiler(scanner, parser, emitter, environment);
 
-  if (!compiler.compile(source)) {
+  const func = compiler.compile(source);
+
+  if (func === null) {
     return InterpretResult.COMPILE_ERROR;
   }
 
   const vm = new VirtualMachine(chunk, debugUtil, environment);
   vm.initVM();
-  const result = vm.run();
+  const result = vm.run(func);
 
   return result;
 }
@@ -34,13 +36,17 @@ function repl(): void {
   const scanner = new Scanner();
   const debugUtil = new DebugUtil(chunk);
   const parser = new Parser();
-  const emitter = new Emitter(chunk, parser);
+  const emitter = new Emitter(parser);
   const environment = new Environment();
   const compiler = new Compiler(scanner, parser, emitter, environment);
   const vm = new VirtualMachine(chunk, debugUtil, environment);
   vm.initVM();
 
-  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: false,
+  });
 
   console.log('Welcome to tlox REPL');
   console.log('To exit, press Ctrl+C or type exit');
@@ -53,8 +59,12 @@ function repl(): void {
       process.exit(0);
     }
 
-    compiler.compile(line);
-    vm.run();
+    const func = compiler.compile(line);
+
+    if (func !== null) {
+      vm.run(func);
+    }
+
     scanner.reset();
 
     rl.prompt();

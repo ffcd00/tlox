@@ -99,3 +99,8 @@ export enum ValueType {
   NUMBER,
   OBJECT,
 }
+
+export enum FunctionType {
+  FUNCTION,
+  SCRIPT,
+}

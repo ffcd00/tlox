@@ -20,6 +20,7 @@
     "no-empty-function": "off",
     "no-cond-assign": "off",
     "no-bitwise": "off",
+    "no-plusplus": "off",
     "default-case": "off",
     "comma-dangle": "off",
     "operator-linebreak": "off",
@@ -42,6 +43,13 @@
       "files": ["tests/**"],
       "rules": {
         "no-undef": "off"
+      }
+    },
+    {
+      "files": ["web/**"],
+      "rules": {
+        "arrow-body-style": "off",
+        "@typescript-eslint/explicit-function-return-type": "off"
       }
     }
   ]

@@ -1,9 +1,10 @@
 import { Chunk } from './chunk';
-import { DEBUG_TRACE_EXECUTION } from './common';
+import { DEBUG_TRACE_EXECUTION, UINT8_COUNT } from './common';
 import { DebugUtil } from './debug';
 import { InterpretResult, OpCode } from './enum';
 import { Environment } from './environment';
-import { allocateString, asString, isString, ObjectString } from './object';
+import { CallFrame } from './frame';
+import { allocateString, asString, isString, ObjectFunction, ObjectString } from './object';
 import {
   asNumber,
   booleanValue,
@@ -17,7 +18,8 @@ import {
   valuesEqual,
 } from './value';
 
-const STACK_MAX = 256;
+const FRAMES_MAX = 64;
+const STACK_MAX = FRAMES_MAX * UINT8_COUNT;
 
 type BinaryOperator = '+' | '-' | '*' | '/' | '>' | '<';
 
@@ -39,6 +41,16 @@ export class VirtualMachine {
    */
   private readonly strings: Map<string, ObjectString> = new Map<string, ObjectString>();
 
+  /**
+   * CallFrame in the VM
+   */
+  private frames: CallFrame[] = new Array<CallFrame>(FRAMES_MAX);
+
+  /**
+   * The current height of the CallFrame stack
+   */
+  private frameCount: number = 0;
+
   constructor(
     private readonly chunk: Chunk,
     private readonly debugUtil: DebugUtil,
@@ -50,11 +62,12 @@ export class VirtualMachine {
     this.strings.clear();
   }
 
-  public run(): InterpretResult {
+  public run(func: ObjectFunction): InterpretResult {
+    const frame = new CallFrame(func, 0, this.stack);
+    this.frames[this.frameCount++] = frame;
+
     for (;;) {
-      if (DEBUG_TRACE_EXECUTION) {
-        this.debugUtil.disassembleInstruction(this.instructionIndex);
-      }
+      const frame = this.currentFrame();
 
       try {
         switch (this.readByte()) {
@@ -77,12 +90,12 @@ export class VirtualMachine {
             break;
           case OpCode.OP_GET_LOCAL: {
             const slot = this.readByte();
-            this.push(this.stack[slot]);
+            this.push(frame.slots[slot]);
             break;
           }
           case OpCode.OP_SET_LOCAL: {
             const slot = this.readByte();
-            this.stack[slot] = this.peek();
+            frame.slots[slot] = this.peek();
             break;
           }
           case OpCode.OP_GET_GLOBAL: {
@@ -169,18 +182,18 @@ export class VirtualMachine {
           case OpCode.OP_JUMP_IF_FALSE: {
             const offset = this.readShort();
             if (isFalsy(this.peek())) {
-              this.instructionIndex += offset;
+              frame.instructionIndex += offset;
             }
             break;
           }
           case OpCode.OP_JUMP: {
             const offset = this.readShort();
-            this.instructionIndex += offset;
+            frame.instructionIndex += offset;
             break;
           }
           case OpCode.OP_LOOP: {
             const offset = this.readShort();
-            this.instructionIndex -= offset;
+            frame.instructionIndex -= offset;
             break;
           }
           case OpCode.OP_RETURN:
@@ -196,14 +209,20 @@ export class VirtualMachine {
     }
   }
 
+  private currentFrame(): CallFrame {
+    return this.frames[this.frameCount - 1];
+  }
+
   private readByte(): OpCode {
-    const index = this.instructionIndex;
-    this.instructionIndex += 1;
-    return this.chunk.code[index];
+    const frame = this.currentFrame();
+    const index = frame.instructionIndex;
+    frame.instructionIndex += 1;
+    return frame.func.chunk.code[index];
   }
 
   private readConstant(): Value {
-    return this.chunk.constants[this.readByte()];
+    const frame = this.currentFrame();
+    return frame.func.chunk.constants[this.readByte()];
   }
 
   /**
@@ -212,9 +231,10 @@ export class VirtualMachine {
    * @returns
    */
   private readShort(): number {
-    const a = this.chunk.code[this.instructionIndex];
-    const b = this.chunk.code[this.instructionIndex + 1];
-    this.instructionIndex += 2;
+    const frame = this.currentFrame();
+    const a = frame.func.chunk.code[frame.instructionIndex];
+    const b = frame.func.chunk.code[frame.instructionIndex + 1];
+    frame.instructionIndex += 2;
     return (a << 8) | b;
   }
 
@@ -239,6 +259,7 @@ export class VirtualMachine {
   private resetStack(): void {
     this.stackTop = 0;
     this.instructionIndex = 0;
+    this.frameCount = 0;
   }
 
   private runtimeError(message: string): void {
