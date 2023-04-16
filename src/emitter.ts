@@ -19,6 +19,7 @@ export class Emitter {
   }
 
   public emitReturn(): void {
+    this.emitByte(OpCode.OP_NIL);
     this.emitByte(OpCode.OP_RETURN);
   }
 
