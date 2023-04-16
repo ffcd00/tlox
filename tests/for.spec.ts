@@ -239,20 +239,21 @@ describe('test for', () => {
   });
 
   test('syntax: no clause', () => {
-    // TODO: restore when functions are ready
-    // // arrange
-    // const source = `
-    //   // No clauses.
-    //   fun foo() {
-    //     for (;;) return "done";
-    //   }
-    //   print foo(); // expect: done
-    // `;
-    // // act
-    // const result = interpret(source);
-    // // assert
-    // expect(result).toEqual(InterpretResult.OK);
-    // expect(stdout).toHaveBeenNthCalledWith(1, 'done');
+    // arrange
+    const source = `
+      // No clauses.
+      fun foo() {
+        for (;;) return "done";
+      }
+      print foo(); // expect: done
+    `;
+
+    // act
+    const result = interpret(source);
+
+    // assert
+    expect(result).toEqual(InterpretResult.OK);
+    expect(stdout).toHaveBeenNthCalledWith(1, 'done');
   });
 
   test('syntax: no variable', () => {
@@ -275,28 +276,29 @@ describe('test for', () => {
   });
 
   test('syntax: no condition', () => {
-    // TODO: restore test when functions are ready
-    // // arrange
-    // const source = `
-    //   // No condition.
-    //   fun bar() {
-    //     for (var i = 0;; i = i + 1) {
-    //       print i;
-    //       if (i >= 2) return;
-    //     }
-    //   }
-    //   bar();
-    //   // expect: 0
-    //   // expect: 1
-    //   // expect: 2
-    // `;
-    // // act
-    // const result = interpret(source);
-    // // assert
-    // expect(result).toEqual(InterpretResult.OK);
-    // expect(stdout).toHaveBeenNthCalledWith(1, '0');
-    // expect(stdout).toHaveBeenNthCalledWith(3, '1');
-    // expect(stdout).toHaveBeenNthCalledWith(5, '2');
+    // arrange
+    const source = `
+      // No condition.
+      fun bar() {
+        for (var i = 0;; i = i + 1) {
+          print i;
+          if (i >= 2) return;
+        }
+      }
+      bar();
+      // expect: 0
+      // expect: 1
+      // expect: 2
+    `;
+
+    // act
+    const result = interpret(source);
+
+    // assert
+    expect(result).toEqual(InterpretResult.OK);
+    expect(stdout).toHaveBeenNthCalledWith(1, '0');
+    expect(stdout).toHaveBeenNthCalledWith(3, '1');
+    expect(stdout).toHaveBeenNthCalledWith(5, '2');
   });
 
   test('syntax: no increment', () => {

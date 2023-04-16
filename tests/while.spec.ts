@@ -105,8 +105,8 @@ describe('test while', () => {
   });
 
   test('return inside', () => {
-    // TODO: restore when functions are ready
-    // // arrange
+    // TODO: restore when closures are ready
+    // arrange
     // const source = `
     //   fun f() {
     //     while (true) {

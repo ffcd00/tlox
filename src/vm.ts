@@ -4,12 +4,22 @@ import { DebugUtil } from './debug';
 import { InterpretResult, OpCode } from './enum';
 import { Environment } from './environment';
 import { CallFrame } from './frame';
-import { allocateString, asString, isString, ObjectFunction, ObjectString } from './object';
+import {
+  allocateString,
+  asFunction,
+  asString,
+  isString,
+  ObjectFunction,
+  ObjectString,
+  ObjectType,
+  objectType,
+} from './object';
 import {
   asNumber,
   booleanValue,
   isFalsy,
   isNumber,
+  isObject,
   nilValue,
   numberValue,
   objectValue,
@@ -24,8 +34,6 @@ const STACK_MAX = FRAMES_MAX * UINT8_COUNT;
 type BinaryOperator = '+' | '-' | '*' | '/' | '>' | '<';
 
 export class VirtualMachine {
-  private instructionIndex: number = 0;
-
   private stackTop: number = 0;
 
   private readonly stack: Value[] = new Array<Value>(STACK_MAX);
@@ -63,11 +71,15 @@ export class VirtualMachine {
   }
 
   public run(func: ObjectFunction): InterpretResult {
-    const frame = new CallFrame(func, 0, this.stack);
+    const frame = new CallFrame(func, 0, 0);
     this.frames[this.frameCount++] = frame;
 
     for (;;) {
-      const frame = this.currentFrame();
+      let frame = this.currentFrame();
+
+      if (DEBUG_TRACE_EXECUTION) {
+        this.debugUtil.disassembleInstruction(func.chunk, frame.instructionIndex);
+      }
 
       try {
         switch (this.readByte()) {
@@ -90,12 +102,12 @@ export class VirtualMachine {
             break;
           case OpCode.OP_GET_LOCAL: {
             const slot = this.readByte();
-            this.push(frame.slots[slot]);
+            this.push(this.stack[frame.slotIndex + slot]);
             break;
           }
           case OpCode.OP_SET_LOCAL: {
             const slot = this.readByte();
-            frame.slots[slot] = this.peek();
+            this.stack[frame.slotIndex + slot] = this.peek();
             break;
           }
           case OpCode.OP_GET_GLOBAL: {
@@ -196,8 +208,28 @@ export class VirtualMachine {
             frame.instructionIndex -= offset;
             break;
           }
-          case OpCode.OP_RETURN:
-            return InterpretResult.OK;
+          case OpCode.OP_CALL: {
+            const argCount = this.readByte();
+            if (!this.callValue(this.peek(argCount), argCount)) {
+              return InterpretResult.RUNTIME_ERROR;
+            }
+            // frame = this.frames[this.frameCount - 1];
+            break;
+          }
+          case OpCode.OP_RETURN: {
+            const result = this.pop();
+            this.frameCount -= 1;
+            if (this.frameCount === 0) {
+              this.pop();
+              return InterpretResult.OK;
+            }
+
+            // TODO
+            // this.stackTop = this.stack.length - 1;
+            this.push(result);
+            frame = this.frames[this.frameCount - 1];
+            break;
+          }
         }
       } catch (e: unknown) {
         if (e instanceof Error) {
@@ -256,15 +288,57 @@ export class VirtualMachine {
     return this.stack[this.stackTop - 1 - distance];
   }
 
+  private call(func: ObjectFunction, argCount: number): boolean {
+    if (argCount !== func.arity) {
+      this.runtimeError(`Expect ${func.arity} arguments but got ${argCount}`);
+      return false;
+    }
+    if (this.frameCount >= FRAMES_MAX) {
+      this.runtimeError('Stack overflow');
+      return false;
+    }
+
+    const frame = new CallFrame(func, 0, this.stackTop - argCount);
+    this.frames[this.frameCount] = frame;
+    this.frameCount += 1;
+    return true;
+  }
+
+  private callValue(callee: Value, argCount: number): boolean {
+    if (isObject(callee)) {
+      switch (objectType(callee)) {
+        case ObjectType.FUNCTION:
+          return this.call(asFunction(callee), argCount);
+        default:
+          // Non-callable object type
+          break;
+      }
+    }
+    this.runtimeError('Can only call functions and classes');
+    return false;
+  }
+
   private resetStack(): void {
     this.stackTop = 0;
-    this.instructionIndex = 0;
     this.frameCount = 0;
   }
 
   private runtimeError(message: string): void {
     this.environment.stderr(`runtime error: ${message}`);
     this.environment.stderr('\n');
+
+    for (let i = this.frameCount - 1; i >= 0; i--) {
+      const frame = this.frames[i];
+      const { func } = frame;
+      const instruction = frame.func.chunk.code[frame.instructionIndex - 1];
+      this.environment.stderr(`[line ${func.chunk.lines[instruction]}] in `);
+      if (func.name.chars === '') {
+        this.environment.stderr('script\n');
+      } else {
+        this.environment.stderr(`${func.name.chars}()\n`);
+      }
+    }
+
     this.resetStack();
   }
 

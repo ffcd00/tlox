@@ -355,19 +355,20 @@ describe('test local variables', () => {
   });
 
   test('unreached undefined', () => {
-    // TODO: restore when control flow is ready
-    // // arrange
-    // const source = `
-    //   if (false) {
-    //     print notDefined;
-    //   }
-    //   print "ok"; // expect: ok
-    // `;
-    // // act
-    // const result = interpret(source);
-    // // assert
-    // expect(result).toEqual(InterpretResult.OK);
-    // expect(stdout).toHaveBeenNthCalledWith(1, 'ok');
+    // arrange
+    const source = `
+      if (false) {
+        print notDefined;
+      }
+      print "ok"; // expect: ok
+    `;
+
+    // act
+    const result = interpret(source);
+
+    // assert
+    expect(result).toEqual(InterpretResult.OK);
+    expect(stdout).toHaveBeenNthCalledWith(1, 'ok');
   });
 
   test('use false as var', () => {

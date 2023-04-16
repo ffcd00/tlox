@@ -1,16 +1,24 @@
 import { ObjectFunction } from './object';
-import { Value } from './value';
 
 export class CallFrame {
+  /**
+   * The function being called
+   */
   public func: ObjectFunction;
 
+  /**
+   * The instruction index of the function's bytecode
+   */
   public instructionIndex: number;
 
-  public slots: Value[];
+  /**
+   * The starting index of the call frame window in the stack
+   */
+  public slotIndex: number;
 
-  constructor(func: ObjectFunction, instructionIndex: number, slots: Value[]) {
+  constructor(func: ObjectFunction, instructionIndex: number, slotIndex: number) {
     this.func = func;
     this.instructionIndex = instructionIndex;
-    this.slots = slots;
+    this.slotIndex = slotIndex;
   }
 }

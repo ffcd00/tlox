@@ -13,7 +13,7 @@ import { VirtualMachine } from './vm';
 function interpret(source: string, environment: Environment = new Environment()): InterpretResult {
   const chunk = new Chunk();
   const scanner = new Scanner();
-  const debugUtil = new DebugUtil(chunk);
+  const debugUtil = new DebugUtil();
   const parser = new Parser();
   const emitter = new Emitter(parser);
   const compiler = new Compiler(scanner, parser, emitter, environment);
@@ -34,7 +34,7 @@ function interpret(source: string, environment: Environment = new Environment())
 function repl(): void {
   const chunk = new Chunk();
   const scanner = new Scanner();
-  const debugUtil = new DebugUtil(chunk);
+  const debugUtil = new DebugUtil();
   const parser = new Parser();
   const emitter = new Emitter(parser);
   const environment = new Environment();

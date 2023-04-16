@@ -29,7 +29,8 @@
     "import/prefer-default-export": "off",
     "max-classes-per-file": "off",
     "object-curly-newline": "off",
-    "consistent-return": "off"
+    "consistent-return": "off",
+    "class-methods-use-this": "off"
   },
   "overrides": [
     {
