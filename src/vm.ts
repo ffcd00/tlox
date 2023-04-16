@@ -1,4 +1,3 @@
-import { Chunk } from './chunk';
 import { DEBUG_TRACE_EXECUTION, UINT8_COUNT } from './common';
 import { DebugUtil } from './debug';
 import { InterpretResult, OpCode } from './enum';
@@ -59,11 +58,7 @@ export class VirtualMachine {
    */
   private frameCount: number = 0;
 
-  constructor(
-    private readonly chunk: Chunk,
-    private readonly debugUtil: DebugUtil,
-    private readonly environment: Environment
-  ) {}
+  constructor(private readonly debugUtil: DebugUtil, private readonly environment: Environment) {}
 
   public initVM(): void {
     this.resetStack();
