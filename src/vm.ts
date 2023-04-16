@@ -77,7 +77,7 @@ export class VirtualMachine {
     for (;;) {
       let frame = this.currentFrame();
 
-      if (DEBUG_TRACE_EXECUTION) {
+      if (DEBUG_TRACE_EXECUTION && func.chunk.code[frame.instructionIndex] !== undefined) {
         this.debugUtil.disassembleInstruction(func.chunk, frame.instructionIndex);
       }
 
@@ -213,7 +213,7 @@ export class VirtualMachine {
             if (!this.callValue(this.peek(argCount), argCount)) {
               return InterpretResult.RUNTIME_ERROR;
             }
-            // frame = this.frames[this.frameCount - 1];
+            frame = this.frames[this.frameCount - 1];
             break;
           }
           case OpCode.OP_RETURN: {
@@ -224,8 +224,7 @@ export class VirtualMachine {
               return InterpretResult.OK;
             }
 
-            // TODO
-            // this.stackTop = this.stack.length - 1;
+            this.stackTop = frame.slotIndex - 1;
             this.push(result);
             frame = this.frames[this.frameCount - 1];
             break;

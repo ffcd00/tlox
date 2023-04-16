@@ -434,11 +434,13 @@ export class Compiler {
     this.consume(TokenType.RIGHT_BRACE, "Expect '}' after block.");
   }
 
-  private function(type: FunctionType, name: ObjectString): void {
+  private function(type: FunctionType, name?: ObjectString): void {
     const compiler = new Compiler(this.scanner, this.parser, this.emitter, this.environment);
     compiler.funcType = type;
     compiler.source = this.source;
-    compiler.func.name = name;
+    if (name !== undefined) {
+      compiler.func.name = name;
+    }
     compiler.beginScope();
 
     compiler.consume(TokenType.LEFT_PAREN, "Expect '(' after function name");
@@ -466,7 +468,8 @@ export class Compiler {
   private funDeclaration(): void {
     const global = this.parseVariable('Expect function name');
     this.markInitialized();
-    this.function(FunctionType.FUNCTION, asString(this.func.chunk.constants[global]));
+    const functionName = this.func.chunk.constants[global];
+    this.function(FunctionType.FUNCTION, functionName ? asString(functionName) : undefined);
     this.defineVariable(global);
   }
 
