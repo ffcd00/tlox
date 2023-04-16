@@ -9,6 +9,8 @@ describe('test number', () => {
   beforeAll(() => {
     stdout = jest.spyOn(Environment.prototype, 'stdout');
     stderr = jest.spyOn(Environment.prototype, 'stderr');
+    stdout.mockImplementation(jest.fn());
+    stderr.mockImplementation(jest.fn());
   });
 
   beforeEach(() => {

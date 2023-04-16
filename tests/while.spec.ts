@@ -9,6 +9,8 @@ describe('test while', () => {
   beforeAll(() => {
     stdout = jest.spyOn(Environment.prototype, 'stdout');
     stderr = jest.spyOn(Environment.prototype, 'stderr');
+    stdout.mockImplementation(jest.fn());
+    stderr.mockImplementation(jest.fn());
   });
 
   beforeEach(() => {
@@ -103,8 +105,8 @@ describe('test while', () => {
   });
 
   test('return inside', () => {
-    // TODO: restore when functions are ready
-    // // arrange
+    // TODO: restore when closures are ready
+    // arrange
     // const source = `
     //   fun f() {
     //     while (true) {

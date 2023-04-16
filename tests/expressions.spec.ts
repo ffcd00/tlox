@@ -7,6 +7,7 @@ describe('test expressions', () => {
 
   beforeAll(() => {
     stdout = jest.spyOn(Environment.prototype, 'stdout');
+    stdout.mockImplementation(jest.fn());
   });
 
   beforeEach(() => {

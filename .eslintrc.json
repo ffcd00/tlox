@@ -20,6 +20,7 @@
     "no-empty-function": "off",
     "no-cond-assign": "off",
     "no-bitwise": "off",
+    "no-plusplus": "off",
     "default-case": "off",
     "comma-dangle": "off",
     "operator-linebreak": "off",
@@ -28,7 +29,8 @@
     "import/prefer-default-export": "off",
     "max-classes-per-file": "off",
     "object-curly-newline": "off",
-    "consistent-return": "off"
+    "consistent-return": "off",
+    "class-methods-use-this": "off"
   },
   "overrides": [
     {
@@ -42,6 +44,13 @@
       "files": ["tests/**"],
       "rules": {
         "no-undef": "off"
+      }
+    },
+    {
+      "files": ["web/**"],
+      "rules": {
+        "arrow-body-style": "off",
+        "@typescript-eslint/explicit-function-return-type": "off"
       }
     }
   ]

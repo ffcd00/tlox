@@ -7,6 +7,7 @@ describe('test nil', () => {
 
   beforeAll(() => {
     stdout = jest.spyOn(Environment.prototype, 'stdout');
+    stdout.mockImplementation(jest.fn());
   });
 
   beforeEach(() => {

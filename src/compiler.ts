@@ -1,8 +1,9 @@
+import { Chunk } from './chunk';
 import { UINT8_COUNT } from './common';
 import { Emitter } from './emitter';
-import { OpCode, Precedence, TokenType } from './enum';
+import { FunctionType, OpCode, Precedence, TokenType } from './enum';
 import { Environment } from './environment';
-import { allocateString } from './object';
+import { allocateString, asString, ObjectFunction, ObjectString } from './object';
 import { Parser } from './parser';
 import { Scanner, Token } from './scanner';
 import { numberValue, objectValue } from './value';
@@ -44,6 +45,10 @@ export class Compiler {
 
   private scopeDepth: number;
 
+  private func: ObjectFunction;
+
+  private funcType: FunctionType;
+
   constructor(
     private readonly scanner: Scanner,
     private readonly parser: Parser,
@@ -54,9 +59,12 @@ export class Compiler {
     this.locals = new Array<Local>(UINT8_COUNT + 1);
     this.localCount = 0;
     this.scopeDepth = 0;
+    this.funcType = FunctionType.SCRIPT;
+    this.func = new ObjectFunction(0, new Chunk(), allocateString(''));
+    this.emitter.setCurrentChunk(this.func.chunk);
   }
 
-  public compile(source: string): boolean {
+  public compile(source: string): ObjectFunction | null {
     this.source = source;
     this.advance();
 
@@ -65,7 +73,7 @@ export class Compiler {
     }
 
     this.endCompiler();
-    return !this.parser.hadError;
+    return !this.parser.hadError ? this.func : null;
   }
 
   private advance(): void {
@@ -102,9 +110,10 @@ export class Compiler {
     return true;
   }
 
-  private endCompiler(): void {
+  private endCompiler(): ObjectFunction {
     this.emitter.emitReturn();
     this.source = '';
+    return this.func;
   }
 
   private grouping(): void {
@@ -217,6 +226,11 @@ export class Compiler {
         this.emitter.emitByte(OpCode.OP_DIVIDE);
         break;
     }
+  }
+
+  private call(): void {
+    const argCount = this.argumentList();
+    this.emitter.emitBytes(OpCode.OP_CALL, argCount);
   }
 
   private literal(): void {
@@ -351,6 +365,21 @@ export class Compiler {
     this.emitter.emitBytes(OpCode.OP_DEFINE_GLOBAL, global);
   }
 
+  private argumentList(): number {
+    let argCount = 0;
+    if (!this.check(TokenType.RIGHT_PAREN)) {
+      do {
+        this.expression();
+        if (argCount === 255) {
+          this.error("Can't have more than 255 arguments");
+        }
+        argCount += 1;
+      } while (this.match(TokenType.COMMA));
+    }
+    this.consume(TokenType.RIGHT_PAREN, "Expect ')' after arguments");
+    return argCount;
+  }
+
   private and(): void {
     const endJump = this.emitter.emitJump(OpCode.OP_JUMP_IF_FALSE);
 
@@ -387,6 +416,9 @@ export class Compiler {
   }
 
   private markInitialized(): void {
+    if (this.scopeDepth === 0) {
+      return;
+    }
     this.locals[this.localCount - 1].depth = this.scopeDepth;
   }
 
@@ -400,6 +432,45 @@ export class Compiler {
     }
 
     this.consume(TokenType.RIGHT_BRACE, "Expect '}' after block.");
+  }
+
+  private function(type: FunctionType, name?: ObjectString): void {
+    const compiler = new Compiler(this.scanner, this.parser, this.emitter, this.environment);
+    compiler.funcType = type;
+    compiler.source = this.source;
+    if (name !== undefined) {
+      compiler.func.name = name;
+    }
+    compiler.beginScope();
+
+    compiler.consume(TokenType.LEFT_PAREN, "Expect '(' after function name");
+    if (!compiler.check(TokenType.RIGHT_PAREN)) {
+      do {
+        compiler.func.arity += 1;
+        if (compiler.func.arity > 255) {
+          compiler.errorAtCurrent("Can't have more than 255 parameters");
+        }
+        const constant = compiler.parseVariable('Expect parameter name');
+        compiler.defineVariable(constant);
+      } while (compiler.match(TokenType.COMMA));
+    }
+    compiler.consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters");
+    compiler.consume(TokenType.LEFT_BRACE, "Expect '{' before function body");
+    compiler.block();
+
+    const func = compiler.endCompiler();
+    this.emitter.setCurrentChunk(this.func.chunk);
+
+    const constant = this.emitter.makeConstant(objectValue(func));
+    this.emitter.emitBytes(OpCode.OP_CONSTANT, constant);
+  }
+
+  private funDeclaration(): void {
+    const global = this.parseVariable('Expect function name');
+    this.markInitialized();
+    const functionName = this.func.chunk.constants[global];
+    this.function(FunctionType.FUNCTION, functionName ? asString(functionName) : undefined);
+    this.defineVariable(global);
   }
 
   private varDeclaration(): void {
@@ -417,7 +488,9 @@ export class Compiler {
   }
 
   private declaration(): void {
-    if (this.match(TokenType.VAR)) {
+    if (this.match(TokenType.FUN)) {
+      this.funDeclaration();
+    } else if (this.match(TokenType.VAR)) {
       this.varDeclaration();
     } else {
       this.statement();
@@ -439,6 +512,9 @@ export class Compiler {
       case this.match(TokenType.IF):
         this.ifStatement();
         break;
+      case this.match(TokenType.RETURN):
+        this.returnStatement();
+        break;
       case this.match(TokenType.WHILE):
         this.whileStatement();
         break;
@@ -456,6 +532,19 @@ export class Compiler {
     this.expression();
     this.consume(TokenType.SEMICOLON, "Expect ';' after value.");
     this.emitter.emitByte(OpCode.OP_PRINT);
+  }
+
+  private returnStatement(): void {
+    if (this.funcType === FunctionType.SCRIPT) {
+      this.error("Can't return from top-level code");
+    }
+    if (this.match(TokenType.SEMICOLON)) {
+      this.emitter.emitReturn();
+    } else {
+      this.expression();
+      this.consume(TokenType.SEMICOLON, "Expect ';' after return value");
+      this.emitter.emitByte(OpCode.OP_RETURN);
+    }
   }
 
   private expressionStatement(): void {
@@ -631,7 +720,7 @@ export class Compiler {
   }
 
   private rules: { [key in TokenType]: ParseRule } = {
-    [TokenType.LEFT_PAREN]: Compiler.makeParseRule(this.grouping),
+    [TokenType.LEFT_PAREN]: Compiler.makeParseRule(this.grouping, this.call, Precedence.CALL),
     [TokenType.RIGHT_PAREN]: Compiler.makeParseRule(),
     [TokenType.LEFT_BRACE]: Compiler.makeParseRule(),
     [TokenType.RIGHT_BRACE]: Compiler.makeParseRule(),
