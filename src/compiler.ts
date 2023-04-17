@@ -462,7 +462,7 @@ export class Compiler {
     this.emitter.setCurrentChunk(this.func.chunk);
 
     const constant = this.emitter.makeConstant(objectValue(func));
-    this.emitter.emitBytes(OpCode.OP_CONSTANT, constant);
+    this.emitter.emitBytes(OpCode.OP_CLOSURE, constant);
   }
 
   private funDeclaration(): void {

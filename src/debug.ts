@@ -62,6 +62,13 @@ export class DebugUtil {
         return this.jumpInstruction('OP_LOOP', offset, message, -1, chunk);
       case OpCode.OP_CALL:
         return this.byteInstruction('OP_CALL', offset, message, chunk);
+      case OpCode.OP_CLOSURE: {
+        let index = offset + 1;
+        const constant = chunk.code[index++];
+        const constantLabel = printValue(chunk.constants[constant]);
+        console.log(`${message} ${'OP_CLOSURE'.padEnd(OP_NAME_PADDING, ' ')} ${constant} ${constantLabel}`);
+        return index;
+      }
       default:
         console.log(`Unknown opcode ${instruction}`);
         return offset + 1;

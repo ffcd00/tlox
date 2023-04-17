@@ -1,10 +1,10 @@
-import { ObjectFunction } from './object';
+import { ObjectClosure } from './object';
 
 export class CallFrame {
   /**
-   * The function being called
+   * The closure of the function that is being called
    */
-  public func: ObjectFunction;
+  public closure: ObjectClosure;
 
   /**
    * The instruction index of the function's bytecode
@@ -16,8 +16,8 @@ export class CallFrame {
    */
   public slotIndex: number;
 
-  constructor(func: ObjectFunction, instructionIndex: number, slotIndex: number) {
-    this.func = func;
+  constructor(closure: ObjectClosure, instructionIndex: number, slotIndex: number) {
+    this.closure = closure;
     this.instructionIndex = instructionIndex;
     this.slotIndex = slotIndex;
   }

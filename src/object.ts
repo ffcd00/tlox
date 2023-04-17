@@ -2,6 +2,7 @@ import { Chunk } from './chunk';
 import { asObject, isObject, Value } from './value';
 
 export enum ObjectType {
+  CLOSURE,
   FUNCTION,
   STRING,
 }
@@ -39,6 +40,16 @@ export class ObjectFunction implements LoxObject {
   }
 }
 
+export class ObjectClosure implements LoxObject {
+  public type = ObjectType.CLOSURE;
+
+  public func: ObjectFunction;
+
+  constructor(func: ObjectFunction) {
+    this.func = func;
+  }
+}
+
 export function objectType(value: Value): ObjectType {
   return asObject(value).type;
 }
@@ -55,12 +66,20 @@ export function isFunction(value: Value): boolean {
   return isObjectType(value, ObjectType.FUNCTION);
 }
 
+export function isClosure(value: Value): boolean {
+  return isObjectType(value, ObjectType.CLOSURE);
+}
+
 export function asString(value: Value): ObjectString {
   return asObject(value) as ObjectString;
 }
 
 export function asFunction(value: Value): ObjectFunction {
   return asObject(value) as ObjectFunction;
+}
+
+export function asClosure(value: Value): ObjectClosure {
+  return asObject(value) as ObjectClosure;
 }
 
 export function allocateString(chars: string): ObjectString {
@@ -73,6 +92,8 @@ export function printFunction(func: ObjectFunction): string {
 
 export function printObject(value: Value): string {
   switch (objectType(value)) {
+    case ObjectType.CLOSURE:
+      return printFunction(asClosure(value).func);
     case ObjectType.FUNCTION:
       return printFunction(asFunction(value));
     case ObjectType.STRING:

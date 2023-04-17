@@ -5,9 +5,11 @@ import { Environment } from './environment';
 import { CallFrame } from './frame';
 import {
   allocateString,
+  asClosure,
   asFunction,
   asString,
   isString,
+  ObjectClosure,
   ObjectFunction,
   ObjectString,
   ObjectType,
@@ -66,14 +68,15 @@ export class VirtualMachine {
   }
 
   public run(func: ObjectFunction): InterpretResult {
-    const frame = new CallFrame(func, 0, 0);
+    const closure = new ObjectClosure(func);
+    const frame = new CallFrame(closure, 0, 0);
     this.frames[this.frameCount++] = frame;
 
     for (;;) {
       let frame = this.currentFrame();
 
-      if (DEBUG_TRACE_EXECUTION && func.chunk.code[frame.instructionIndex] !== undefined) {
-        this.debugUtil.disassembleInstruction(func.chunk, frame.instructionIndex);
+      if (DEBUG_TRACE_EXECUTION) {
+        this.debugUtil.disassembleInstruction(frame.closure.func.chunk, frame.instructionIndex);
       }
 
       try {
@@ -211,6 +214,12 @@ export class VirtualMachine {
             frame = this.frames[this.frameCount - 1];
             break;
           }
+          case OpCode.OP_CLOSURE: {
+            const func = asFunction(this.readConstant());
+            const closure = new ObjectClosure(func);
+            this.push(objectValue(closure));
+            break;
+          }
           case OpCode.OP_RETURN: {
             const result = this.pop();
             this.frameCount -= 1;
@@ -243,12 +252,12 @@ export class VirtualMachine {
     const frame = this.currentFrame();
     const index = frame.instructionIndex;
     frame.instructionIndex += 1;
-    return frame.func.chunk.code[index];
+    return frame.closure.func.chunk.code[index];
   }
 
   private readConstant(): Value {
     const frame = this.currentFrame();
-    return frame.func.chunk.constants[this.readByte()];
+    return frame.closure.func.chunk.constants[this.readByte()];
   }
 
   /**
@@ -258,8 +267,8 @@ export class VirtualMachine {
    */
   private readShort(): number {
     const frame = this.currentFrame();
-    const a = frame.func.chunk.code[frame.instructionIndex];
-    const b = frame.func.chunk.code[frame.instructionIndex + 1];
+    const a = frame.closure.func.chunk.code[frame.instructionIndex];
+    const b = frame.closure.func.chunk.code[frame.instructionIndex + 1];
     frame.instructionIndex += 2;
     return (a << 8) | b;
   }
@@ -282,9 +291,9 @@ export class VirtualMachine {
     return this.stack[this.stackTop - 1 - distance];
   }
 
-  private call(func: ObjectFunction, argCount: number): boolean {
-    if (argCount !== func.arity) {
-      this.runtimeError(`Expect ${func.arity} arguments but got ${argCount}`);
+  private call(closure: ObjectClosure, argCount: number): boolean {
+    if (argCount !== closure.func.arity) {
+      this.runtimeError(`Expect ${closure.func.arity} arguments but got ${argCount}`);
       return false;
     }
     if (this.frameCount >= FRAMES_MAX) {
@@ -292,7 +301,7 @@ export class VirtualMachine {
       return false;
     }
 
-    const frame = new CallFrame(func, 0, this.stackTop - argCount);
+    const frame = new CallFrame(closure, 0, this.stackTop - argCount);
     this.frames[this.frameCount] = frame;
     this.frameCount += 1;
     return true;
@@ -301,8 +310,8 @@ export class VirtualMachine {
   private callValue(callee: Value, argCount: number): boolean {
     if (isObject(callee)) {
       switch (objectType(callee)) {
-        case ObjectType.FUNCTION:
-          return this.call(asFunction(callee), argCount);
+        case ObjectType.CLOSURE:
+          return this.call(asClosure(callee), argCount);
         default:
           // Non-callable object type
           break;
@@ -323,8 +332,8 @@ export class VirtualMachine {
 
     for (let i = this.frameCount - 1; i >= 0; i--) {
       const frame = this.frames[i];
-      const { func } = frame;
-      const instruction = frame.func.chunk.code[frame.instructionIndex - 1];
+      const { func } = frame.closure;
+      const instruction = func.chunk.code[frame.instructionIndex - 1];
       this.environment.stderr(`[line ${func.chunk.lines[instruction]}] in `);
       if (func.name.chars === '') {
         this.environment.stderr('script\n');
