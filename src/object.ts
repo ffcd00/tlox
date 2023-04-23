@@ -5,6 +5,7 @@ export enum ObjectType {
   CLOSURE,
   FUNCTION,
   STRING,
+  UPVALUE,
 }
 
 export interface LoxObject {
@@ -33,10 +34,29 @@ export class ObjectFunction implements LoxObject {
 
   public name: ObjectString;
 
+  public upvalueCount: number;
+
   constructor(arity: number, chunk: Chunk, name: ObjectString) {
     this.arity = arity;
     this.chunk = chunk;
     this.name = name;
+    this.upvalueCount = 0;
+  }
+}
+
+export class ObjectUpvalue implements LoxObject {
+  public type = ObjectType.UPVALUE;
+
+  public location: Value;
+
+  // eslint-disable-next-line no-use-before-define
+  public next: ObjectUpvalue | undefined;
+
+  public closed: Value | undefined;
+
+  constructor(slot: Value) {
+    this.location = slot;
+    this.next = undefined;
   }
 }
 
@@ -45,8 +65,14 @@ export class ObjectClosure implements LoxObject {
 
   public func: ObjectFunction;
 
+  public upvalues: ObjectUpvalue[];
+
+  public upvalueCount: number;
+
   constructor(func: ObjectFunction) {
     this.func = func;
+    this.upvalues = new Array<ObjectUpvalue>(func.upvalueCount);
+    this.upvalueCount = func.upvalueCount;
   }
 }
 
@@ -98,5 +124,7 @@ export function printObject(value: Value): string {
       return printFunction(asFunction(value));
     case ObjectType.STRING:
       return asString(value).chars;
+    case ObjectType.UPVALUE:
+      return 'upvalue';
   }
 }
