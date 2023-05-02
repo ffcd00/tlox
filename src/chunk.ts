@@ -1,10 +1,10 @@
 import type { OpCode } from './enum';
-import type { Value, ValueArray } from './value';
+import type { Value } from './value';
 
 export class Chunk {
   public readonly code: OpCode[] = [];
 
-  public readonly constants: ValueArray = [];
+  public readonly constants: Array<Value> = [];
 
   public readonly lines: number[] = [];
 

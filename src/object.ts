@@ -1,16 +1,20 @@
 import { Chunk } from './chunk';
-import { asObject, isObject, Value } from './value';
+import { ObjectType } from './enum';
+import { Value } from './value';
 
-export enum ObjectType {
-  FUNCTION,
-  STRING,
+export abstract class LoxObject {
+  public abstract type: ObjectType;
+
+  public static objectType(value: Value): ObjectType {
+    return value.asObject().type;
+  }
+
+  public static isObjectType(value: Value, type: ObjectType): boolean {
+    return value.isObject() && value.asObject().type === type;
+  }
 }
 
-export interface LoxObject {
-  type: ObjectType;
-}
-
-export class ObjectString implements LoxObject {
+export class LoxString extends LoxObject {
   public type = ObjectType.STRING;
 
   public length: number = 0;
@@ -18,64 +22,105 @@ export class ObjectString implements LoxObject {
   public chars: string = '';
 
   constructor(chars: string) {
+    super();
     this.chars = chars;
     this.length = chars.length;
   }
+
+  public static isString(value: Value): boolean {
+    return LoxObject.isObjectType(value, ObjectType.STRING);
+  }
+
+  public static asString(value: Value): LoxString {
+    return value.asObject() as LoxString;
+  }
+
+  public override toString(): string {
+    return this.chars;
+  }
 }
 
-export class ObjectFunction implements LoxObject {
+export class LoxFunction extends LoxObject {
   public type = ObjectType.FUNCTION;
 
   public arity: number;
 
   public chunk: Chunk;
 
-  public name: ObjectString;
+  public name: LoxString;
 
-  constructor(arity: number, chunk: Chunk, name: ObjectString) {
+  public upvalueCount: number;
+
+  constructor(arity: number, chunk: Chunk, name: LoxString) {
+    super();
     this.arity = arity;
     this.chunk = chunk;
     this.name = name;
+    this.upvalueCount = 0;
+  }
+
+  public static isFunction(value: Value): boolean {
+    return LoxObject.isObjectType(value, ObjectType.FUNCTION);
+  }
+
+  public static asFunction(value: Value): LoxFunction {
+    return value.asObject() as LoxFunction;
+  }
+
+  public override toString(): string {
+    return `<fn ${this.name.chars}>`;
   }
 }
 
-export function objectType(value: Value): ObjectType {
-  return asObject(value).type;
+export class LoxUpvalue extends LoxObject {
+  public type = ObjectType.UPVALUE;
+
+  public location: Value;
+
+  // eslint-disable-next-line no-use-before-define
+  public next: LoxUpvalue | undefined;
+
+  public upvalueIndex: number;
+
+  public closed: Value | undefined;
+
+  constructor(slot: Value) {
+    super();
+    this.location = slot;
+    this.next = undefined;
+    this.upvalueIndex = 0;
+  }
+
+  public override toString(): string {
+    return 'upvalue';
+  }
 }
 
-export function isObjectType(value: Value, type: ObjectType): boolean {
-  return isObject(value) && asObject(value).type === type;
-}
+export class LoxClosure extends LoxObject {
+  public type = ObjectType.CLOSURE;
 
-export function isString(value: Value): boolean {
-  return isObjectType(value, ObjectType.STRING);
-}
+  public func: LoxFunction;
 
-export function isFunction(value: Value): boolean {
-  return isObjectType(value, ObjectType.FUNCTION);
-}
+  public upvalues: LoxUpvalue[];
 
-export function asString(value: Value): ObjectString {
-  return asObject(value) as ObjectString;
-}
+  public upvalueCount: number;
 
-export function asFunction(value: Value): ObjectFunction {
-  return asObject(value) as ObjectFunction;
-}
+  constructor(func: LoxFunction) {
+    super();
+    this.func = func;
+    this.upvalues = new Array<LoxUpvalue>(func.upvalueCount);
+    this.upvalueCount = func.upvalueCount;
+  }
 
-export function allocateString(chars: string): ObjectString {
-  return new ObjectString(chars);
-}
+  public static isClosure(value: Value): boolean {
+    return LoxObject.isObjectType(value, ObjectType.CLOSURE);
+  }
 
-export function printFunction(func: ObjectFunction): string {
-  return `<fn ${func.name.chars}>`;
-}
+  public static asClosure(value: Value): LoxClosure {
+    return value.asObject() as LoxClosure;
+  }
 
-export function printObject(value: Value): string {
-  switch (objectType(value)) {
-    case ObjectType.FUNCTION:
-      return printFunction(asFunction(value));
-    case ObjectType.STRING:
-      return asString(value).chars;
+  public override toString(): string {
+    return this.func.toString();
   }
 }

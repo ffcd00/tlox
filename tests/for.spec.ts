@@ -37,39 +37,40 @@ describe('test for', () => {
   });
 
   test('closure in body', () => {
-    // TODO: restore test when closure is ready
-    // // arrange
-    // const source = `
-    //   var f1;
-    //   var f2;
-    //   var f3;
-    //   for (var i = 1; i < 4; i = i + 1) {
-    //     var j = i;
-    //     fun f() {
-    //       print i;
-    //       print j;
-    //     }
-    //     if (j == 1) f1 = f;
-    //     else if (j == 2) f2 = f;
-    //     else f3 = f;
-    //   }
-    //   f1(); // expect: 4
-    //         // expect: 1
-    //   f2(); // expect: 4
-    //         // expect: 2
-    //   f3(); // expect: 4
-    //         // expect: 3
-    // `;
-    // // act
-    // const result = interpret(source);
-    // // assert
-    // expect(result).toEqual(InterpretResult.OK);
-    // expect(stderr).toHaveBeenNthCalledWith(1, '4');
-    // expect(stderr).toHaveBeenNthCalledWith(3, '1');
-    // expect(stderr).toHaveBeenNthCalledWith(5, '4');
-    // expect(stderr).toHaveBeenNthCalledWith(7, '2');
-    // expect(stderr).toHaveBeenNthCalledWith(9, '4');
-    // expect(stderr).toHaveBeenNthCalledWith(11, '3');
+    // arrange
+    const source = `
+      var f1;
+      var f2;
+      var f3;
+      for (var i = 1; i < 4; i = i + 1) {
+        var j = i;
+        fun f() {
+          print i;
+          print j;
+        }
+        if (j == 1) f1 = f;
+        else if (j == 2) f2 = f;
+        else f3 = f;
+      }
+      f1(); // expect: 1
+            // expect: 1
+      f2(); // expect: 2
+            // expect: 2
+      f3(); // expect: 3
+            // expect: 3
+    `;
+
+    // act
+    const result = interpret(source);
+
+    // assert
+    expect(result).toEqual(InterpretResult.OK);
+    expect(stdout).toHaveBeenNthCalledWith(1, '1');
+    expect(stdout).toHaveBeenNthCalledWith(3, '1');
+    expect(stdout).toHaveBeenNthCalledWith(5, '2');
+    expect(stdout).toHaveBeenNthCalledWith(7, '2');
+    expect(stdout).toHaveBeenNthCalledWith(9, '3');
+    expect(stdout).toHaveBeenNthCalledWith(11, '3');
   });
 
   test('scope', () => {

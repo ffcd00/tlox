@@ -1,31 +1,10 @@
 import { DEBUG_TRACE_EXECUTION, UINT8_COUNT } from './common';
 import { DebugUtil } from './debug';
-import { InterpretResult, OpCode } from './enum';
+import { InterpretResult, ObjectType, OpCode } from './enum';
 import { Environment } from './environment';
 import { CallFrame } from './frame';
-import {
-  allocateString,
-  asFunction,
-  asString,
-  isString,
-  ObjectFunction,
-  ObjectString,
-  ObjectType,
-  objectType,
-} from './object';
-import {
-  asNumber,
-  booleanValue,
-  isFalsy,
-  isNumber,
-  isObject,
-  nilValue,
-  numberValue,
-  objectValue,
-  printValue,
-  Value,
-  valuesEqual,
-} from './value';
+import { LoxClosure, LoxFunction, LoxString, LoxUpvalue, LoxObject } from './object';
+import { Value } from './value';
 
 const FRAMES_MAX = 64;
 const STACK_MAX = FRAMES_MAX * UINT8_COUNT;
@@ -46,7 +25,7 @@ export class VirtualMachine {
    * `strings` is a mapping between computed string constants and
    * the corresponding `ObjectString` for string interning in runtime.
    */
-  private readonly strings: Map<string, ObjectString> = new Map<string, ObjectString>();
+  private readonly strings: Map<string, LoxString> = new Map<string, LoxString>();
 
   /**
    * CallFrame in the VM
@@ -58,6 +37,11 @@ export class VirtualMachine {
    */
   private frameCount: number = 0;
 
+  /**
+   * The list of open upvalues
+   */
+  private openUpvalues: LoxUpvalue | undefined;
+
   constructor(private readonly debugUtil: DebugUtil, private readonly environment: Environment) {}
 
   public initVM(): void {
@@ -65,15 +49,16 @@ export class VirtualMachine {
     this.strings.clear();
   }
 
-  public run(func: ObjectFunction): InterpretResult {
-    const frame = new CallFrame(func, 0, 0);
+  public run(func: LoxFunction): InterpretResult {
+    const closure = new LoxClosure(func);
+    const frame = new CallFrame(closure, 0, 0);
     this.frames[this.frameCount++] = frame;
 
     for (;;) {
       let frame = this.currentFrame();
 
-      if (DEBUG_TRACE_EXECUTION && func.chunk.code[frame.instructionIndex] !== undefined) {
-        this.debugUtil.disassembleInstruction(func.chunk, frame.instructionIndex);
+      if (DEBUG_TRACE_EXECUTION) {
+        this.debugUtil.disassembleInstruction(frame.closure.func.chunk, frame.instructionIndex);
       }
 
       try {
@@ -84,13 +69,13 @@ export class VirtualMachine {
             break;
           }
           case OpCode.OP_NIL:
-            this.push(nilValue());
+            this.push(Value.nilValue());
             break;
           case OpCode.OP_TRUE:
-            this.push(booleanValue(true));
+            this.push(Value.booleanValue(true));
             break;
           case OpCode.OP_FALSE:
-            this.push(booleanValue(false));
+            this.push(Value.booleanValue(false));
             break;
           case OpCode.OP_POP:
             this.pop();
@@ -135,23 +120,33 @@ export class VirtualMachine {
             this.globals.set(name, this.peek());
             break;
           }
+          case OpCode.OP_GET_UPVALUE: {
+            const slot = this.readByte();
+            this.push(frame.closure.upvalues[slot].location);
+            break;
+          }
+          case OpCode.OP_SET_UPVALUE: {
+            const slot = this.readByte();
+            frame.closure.upvalues[slot].location = this.peek();
+            break;
+          }
           case OpCode.OP_EQUAL: {
             const b = this.pop();
             const a = this.pop();
-            this.push(booleanValue(valuesEqual(a, b)));
+            this.push(Value.booleanValue(a.equals(b)));
             break;
           }
           case OpCode.OP_GREATER:
-            this.binaryOperator(booleanValue, '>');
+            this.binaryOperator(Value.booleanValue, '>');
             break;
           case OpCode.OP_LESS:
-            this.binaryOperator(booleanValue, '<');
+            this.binaryOperator(Value.booleanValue, '<');
             break;
           case OpCode.OP_ADD: {
-            if (isString(this.peek()) && isString(this.peek(1))) {
+            if (LoxString.isString(this.peek()) && LoxString.isString(this.peek(1))) {
               this.concatenate();
-            } else if (isNumber(this.peek()) && isNumber(this.peek(1))) {
-              this.binaryOperator(numberValue, '+');
+            } else if (this.peek().isNumber() && this.peek(1).isNumber()) {
+              this.binaryOperator(Value.numberValue, '+');
             } else {
               this.runtimeError('Operands must be two numbers or two strings');
               return InterpretResult.RUNTIME_ERROR;
@@ -159,36 +154,36 @@ export class VirtualMachine {
             break;
           }
           case OpCode.OP_SUBTRACT:
-            this.binaryOperator(numberValue, '-');
+            this.binaryOperator(Value.numberValue, '-');
             break;
           case OpCode.OP_MULTIPLY:
-            this.binaryOperator(numberValue, '*');
+            this.binaryOperator(Value.numberValue, '*');
             break;
           case OpCode.OP_DIVIDE:
-            this.binaryOperator(numberValue, '/');
+            this.binaryOperator(Value.numberValue, '/');
             break;
           case OpCode.OP_NOT:
-            this.push(booleanValue(isFalsy(this.pop())));
+            this.push(Value.booleanValue(this.pop().isFalsy()));
             break;
           case OpCode.OP_NEGATE: {
-            if (!isNumber(this.peek())) {
+            if (!this.peek().isNumber()) {
               this.runtimeError('Operand must be a number');
               return InterpretResult.RUNTIME_ERROR;
             }
-            const number = asNumber(this.pop());
+            const number = this.pop().asNumber();
             const negate = number === 0 ? -0 : -number;
-            this.push(numberValue(negate));
+            this.push(Value.numberValue(negate));
             break;
           }
           case OpCode.OP_PRINT: {
-            const value = printValue(this.pop());
+            const value = this.pop().toString();
             this.environment.stdout(value);
             this.environment.stdout('\n');
             break;
           }
           case OpCode.OP_JUMP_IF_FALSE: {
             const offset = this.readShort();
-            if (isFalsy(this.peek())) {
+            if (this.peek().isFalsy()) {
               frame.instructionIndex += offset;
             }
             break;
@@ -211,8 +206,30 @@ export class VirtualMachine {
             frame = this.frames[this.frameCount - 1];
             break;
           }
+          case OpCode.OP_CLOSURE: {
+            const func = LoxFunction.asFunction(this.readConstant());
+            const closure = new LoxClosure(func);
+            this.push(Value.objectValue(closure));
+
+            for (let i = 0; i < closure.upvalueCount; i++) {
+              const isLocal = this.readByte();
+              const index = this.readByte();
+              if (isLocal) {
+                closure.upvalues[i] = this.captureUpvalue(frame.slotIndex + index);
+              } else {
+                closure.upvalues[i] = frame.closure.upvalues[index];
+              }
+            }
+            break;
+          }
+          case OpCode.OP_CLOSE_UPVALUE: {
+            this.closeUpvalues(this.stackTop - 1);
+            this.pop();
+            break;
+          }
           case OpCode.OP_RETURN: {
             const result = this.pop();
+            this.closeUpvalues(frame.slotIndex);
             this.frameCount -= 1;
             if (this.frameCount === 0) {
               this.pop();
@@ -231,6 +248,7 @@ export class VirtualMachine {
             return InterpretResult.RUNTIME_ERROR;
           }
         }
+        throw e;
       }
     }
   }
@@ -243,12 +261,12 @@ export class VirtualMachine {
     const frame = this.currentFrame();
     const index = frame.instructionIndex;
     frame.instructionIndex += 1;
-    return frame.func.chunk.code[index];
+    return frame.closure.func.chunk.code[index];
   }
 
   private readConstant(): Value {
     const frame = this.currentFrame();
-    return frame.func.chunk.constants[this.readByte()];
+    return frame.closure.func.chunk.constants[this.readByte()];
   }
 
   /**
@@ -258,14 +276,14 @@ export class VirtualMachine {
    */
   private readShort(): number {
     const frame = this.currentFrame();
-    const a = frame.func.chunk.code[frame.instructionIndex];
-    const b = frame.func.chunk.code[frame.instructionIndex + 1];
+    const a = frame.closure.func.chunk.code[frame.instructionIndex];
+    const b = frame.closure.func.chunk.code[frame.instructionIndex + 1];
     frame.instructionIndex += 2;
     return (a << 8) | b;
   }
 
-  private readString(): ObjectString {
-    return asString(this.readConstant());
+  private readString(): LoxString {
+    return LoxString.asString(this.readConstant());
   }
 
   private push(value: Value): void {
@@ -282,9 +300,9 @@ export class VirtualMachine {
     return this.stack[this.stackTop - 1 - distance];
   }
 
-  private call(func: ObjectFunction, argCount: number): boolean {
-    if (argCount !== func.arity) {
-      this.runtimeError(`Expect ${func.arity} arguments but got ${argCount}`);
+  private call(closure: LoxClosure, argCount: number): boolean {
+    if (argCount !== closure.func.arity) {
+      this.runtimeError(`Expect ${closure.func.arity} arguments but got ${argCount}`);
       return false;
     }
     if (this.frameCount >= FRAMES_MAX) {
@@ -292,17 +310,17 @@ export class VirtualMachine {
       return false;
     }
 
-    const frame = new CallFrame(func, 0, this.stackTop - argCount);
+    const frame = new CallFrame(closure, 0, this.stackTop - argCount);
     this.frames[this.frameCount] = frame;
     this.frameCount += 1;
     return true;
   }
 
   private callValue(callee: Value, argCount: number): boolean {
-    if (isObject(callee)) {
-      switch (objectType(callee)) {
-        case ObjectType.FUNCTION:
-          return this.call(asFunction(callee), argCount);
+    if (callee.isObject()) {
+      switch (LoxObject.objectType(callee)) {
+        case ObjectType.CLOSURE:
+          return this.call(LoxClosure.asClosure(callee), argCount);
         default:
           // Non-callable object type
           break;
@@ -312,9 +330,57 @@ export class VirtualMachine {
     return false;
   }
 
+  /**
+   * Capture a value at the given index in the stack
+   * @param stackIndex
+   * @returns
+   */
+  private captureUpvalue(stackIndex: number): LoxUpvalue {
+    const local = this.stack[stackIndex];
+    let prevUpvalue: LoxUpvalue | undefined;
+    let upvalue = this.openUpvalues;
+
+    while (upvalue !== undefined && upvalue.upvalueIndex > stackIndex) {
+      prevUpvalue = upvalue;
+      upvalue = upvalue.next;
+    }
+
+    if (upvalue !== undefined && upvalue.location === local) {
+      return upvalue;
+    }
+
+    const createdUpvalue = new LoxUpvalue(local);
+    createdUpvalue.next = upvalue;
+
+    if (prevUpvalue === undefined) {
+      createdUpvalue.upvalueIndex = 0;
+      this.openUpvalues = createdUpvalue;
+    } else {
+      createdUpvalue.upvalueIndex = prevUpvalue.upvalueIndex + 1;
+      prevUpvalue.next = createdUpvalue;
+    }
+
+    return createdUpvalue;
+  }
+
+  /**
+   * Close an upvalue at a given index in the stack
+   * @param stackIndex
+   */
+  private closeUpvalues(stackIndex: number): void {
+    const last = this.stack[stackIndex];
+    while (this.openUpvalues !== undefined && this.openUpvalues.location >= last) {
+      const upvalue = this.openUpvalues;
+      upvalue.closed = upvalue.location;
+      upvalue.location = upvalue.closed;
+      this.openUpvalues = upvalue.next;
+    }
+  }
+
   private resetStack(): void {
     this.stackTop = 0;
     this.frameCount = 0;
+    this.openUpvalues = undefined;
   }
 
   private runtimeError(message: string): void {
@@ -323,8 +389,8 @@ export class VirtualMachine {
 
     for (let i = this.frameCount - 1; i >= 0; i--) {
       const frame = this.frames[i];
-      const { func } = frame;
-      const instruction = frame.func.chunk.code[frame.instructionIndex - 1];
+      const { func } = frame.closure;
+      const instruction = func.chunk.code[frame.instructionIndex - 1];
       this.environment.stderr(`[line ${func.chunk.lines[instruction]}] in `);
       if (func.name.chars === '') {
         this.environment.stderr('script\n');
@@ -342,14 +408,14 @@ export class VirtualMachine {
    * @param op
    * @throws OPERANDS_NOT_NUMBERS
    */
-  private binaryOperator(valueType: typeof numberValue | typeof booleanValue, op: BinaryOperator): void {
-    if (!isNumber(this.peek()) || !isNumber(this.peek(1))) {
+  private binaryOperator(valueType: typeof Value.numberValue | typeof Value.booleanValue, op: BinaryOperator): void {
+    if (!this.peek().isNumber() || !this.peek(1).isNumber()) {
       this.runtimeError('Operands must be numbers');
       throw new Error('OPERANDS_ARE_NOT_NUMBER');
     }
 
-    const b = asNumber(this.pop());
-    const a = asNumber(this.pop());
+    const b = this.pop().asNumber();
+    const a = this.pop().asNumber();
 
     const result = ((): number | boolean => {
       switch (op) {
@@ -372,15 +438,15 @@ export class VirtualMachine {
   }
 
   private concatenate(): void {
-    const b = asString(this.pop());
-    const a = asString(this.pop());
+    const b = LoxString.asString(this.pop());
+    const a = LoxString.asString(this.pop());
 
     const string = a.chars.concat(b.chars);
     if (this.strings.has(string)) {
-      this.push(objectValue(this.strings.get(string)!));
+      this.push(Value.objectValue(this.strings.get(string)!));
     } else {
-      const result = allocateString(string);
-      this.push(objectValue(result));
+      const result = new LoxString(string);
+      this.push(Value.objectValue(result));
       this.strings.set(string, result);
     }
   }
