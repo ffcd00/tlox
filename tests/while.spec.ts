@@ -37,32 +37,33 @@ describe('test while', () => {
   });
 
   test('closure in body', () => {
-    // TODO: restore when closure is ready
-    // // arrange
-    // const source = `
-    //   var f1;
-    //   var f2;
-    //   var f3;
-    //   var i = 1;
-    //   while (i < 4) {
-    //     var j = i;
-    //     fun f() { print j; }
-    //     if (j == 1) f1 = f;
-    //     else if (j == 2) f2 = f;
-    //     else f3 = f;
-    //     i = i + 1;
-    //   }
-    //   f1(); // expect: 1
-    //   f2(); // expect: 2
-    //   f3(); // expect: 3
-    // `;
-    // // act
-    // const result = interpret(source);
-    // // assert
-    // expect(result).toEqual(InterpretResult.OK);
-    // expect(stdout).toHaveBeenNthCalledWith(1, '1');
-    // expect(stdout).toHaveBeenNthCalledWith(3, '2');
-    // expect(stdout).toHaveBeenNthCalledWith(5, '3');
+    // arrange
+    const source = `
+      var f1;
+      var f2;
+      var f3;
+      var i = 1;
+      while (i < 4) {
+        var j = i;
+        fun f() { print j; }
+        if (j == 1) f1 = f;
+        else if (j == 2) f2 = f;
+        else f3 = f;
+        i = i + 1;
+      }
+      f1(); // expect: 1
+      f2(); // expect: 2
+      f3(); // expect: 3
+    `;
+
+    // act
+    const result = interpret(source);
+
+    // assert
+    expect(result).toEqual(InterpretResult.OK);
+    expect(stdout).toHaveBeenNthCalledWith(1, '1');
+    expect(stdout).toHaveBeenNthCalledWith(3, '2');
+    expect(stdout).toHaveBeenNthCalledWith(5, '3');
   });
 
   test('fun in body', () => {
@@ -84,45 +85,47 @@ describe('test while', () => {
   });
 
   test('return closure', () => {
-    // TODO: restore when closure is ready
-    // // arrange
-    // const source = `
-    //   fun f() {
-    //     while (true) {
-    //       var i = "i";
-    //       fun g() { print i; }
-    //       return g;
-    //     }
-    //   }
-    //   var h = f();
-    //   h(); // expect: i
-    // `;
-    // // act
-    // const result = interpret(source);
-    // // assert
-    // expect(result).toEqual(InterpretResult.OK);
-    // expect(stdout).toHaveBeenNthCalledWith(1, 'i');
+    // arrange
+    const source = `
+      fun f() {
+        while (true) {
+          var i = "i";
+          fun g() { print i; }
+          return g;
+        }
+      }
+      var h = f();
+      h(); // expect: i
+    `;
+
+    // act
+    const result = interpret(source);
+
+    // assert
+    expect(result).toEqual(InterpretResult.OK);
+    expect(stdout).toHaveBeenNthCalledWith(1, 'i');
   });
 
   test('return inside', () => {
-    // TODO: restore when closures are ready
     // arrange
-    // const source = `
-    //   fun f() {
-    //     while (true) {
-    //       var i = "i";
-    //       fun g() { print i; }
-    //       return g;
-    //     }
-    //   }
-    //   var h = f();
-    //   h(); // expect: i
-    // `;
-    // // act
-    // const result = interpret(source);
-    // // assert
-    // expect(result).toEqual(InterpretResult.OK);
-    // expect(stdout).toHaveBeenNthCalledWith(1, 'i');
+    const source = `
+      fun f() {
+        while (true) {
+          var i = "i";
+          fun g() { print i; }
+          return g;
+        }
+      }
+      var h = f();
+      h(); // expect: i
+    `;
+
+    // act
+    const result = interpret(source);
+
+    // assert
+    expect(result).toEqual(InterpretResult.OK);
+    expect(stdout).toHaveBeenNthCalledWith(1, 'i');
   });
 
   test('var in body', () => {

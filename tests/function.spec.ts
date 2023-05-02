@@ -107,22 +107,23 @@ describe('test function', () => {
   });
 
   test('local recursion', () => {
-    // TODO: closure
-    // arrange
-    // const source = `
-    //   {
-    //     fun fib(n) {
-    //       if (n < 2) return n;
-    //       return fib(n - 1) + fib(n - 2);
-    //     }
-    //     print fib(8); // expect: 21
-    //   }
-    // `;
-    // // act
-    // const result = interpret(source);
-    // // assert
-    // expect(result).toEqual(InterpretResult.OK);
-    // expect(stdout).toHaveBeenNthCalledWith(1, '21');
+    // arrange;
+    const source = `
+      {
+        fun fib(n) {
+          if (n < 2) return n;
+          return fib(n - 1) + fib(n - 2);
+        }
+        print fib(8); // expect: 21
+      }
+    `;
+
+    // act
+    const result = interpret(source);
+
+    // assert
+    expect(result).toEqual(InterpretResult.OK);
+    expect(stdout).toHaveBeenNthCalledWith(1, '21');
   });
 
   test('missing arguments', () => {
