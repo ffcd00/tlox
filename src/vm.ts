@@ -4,19 +4,7 @@ import { InterpretResult, ObjectType, OpCode } from './enum';
 import { Environment } from './environment';
 import { CallFrame } from './frame';
 import { LoxClosure, LoxFunction, LoxString, LoxUpvalue, LoxObject } from './object';
-import {
-  asNumber,
-  booleanValue,
-  isFalsy,
-  isNumber,
-  isObject,
-  nilValue,
-  numberValue,
-  objectValue,
-  printValue,
-  Value,
-  valuesEqual,
-} from './value';
+import { Value } from './value';
 
 const FRAMES_MAX = 64;
 const STACK_MAX = FRAMES_MAX * UINT8_COUNT;
@@ -81,13 +69,13 @@ export class VirtualMachine {
             break;
           }
           case OpCode.OP_NIL:
-            this.push(nilValue());
+            this.push(Value.nilValue());
             break;
           case OpCode.OP_TRUE:
-            this.push(booleanValue(true));
+            this.push(Value.booleanValue(true));
             break;
           case OpCode.OP_FALSE:
-            this.push(booleanValue(false));
+            this.push(Value.booleanValue(false));
             break;
           case OpCode.OP_POP:
             this.pop();
@@ -145,20 +133,20 @@ export class VirtualMachine {
           case OpCode.OP_EQUAL: {
             const b = this.pop();
             const a = this.pop();
-            this.push(booleanValue(valuesEqual(a, b)));
+            this.push(Value.booleanValue(a.equals(b)));
             break;
           }
           case OpCode.OP_GREATER:
-            this.binaryOperator(booleanValue, '>');
+            this.binaryOperator(Value.booleanValue, '>');
             break;
           case OpCode.OP_LESS:
-            this.binaryOperator(booleanValue, '<');
+            this.binaryOperator(Value.booleanValue, '<');
             break;
           case OpCode.OP_ADD: {
             if (LoxString.isString(this.peek()) && LoxString.isString(this.peek(1))) {
               this.concatenate();
-            } else if (isNumber(this.peek()) && isNumber(this.peek(1))) {
-              this.binaryOperator(numberValue, '+');
+            } else if (this.peek().isNumber() && this.peek(1).isNumber()) {
+              this.binaryOperator(Value.numberValue, '+');
             } else {
               this.runtimeError('Operands must be two numbers or two strings');
               return InterpretResult.RUNTIME_ERROR;
@@ -166,36 +154,36 @@ export class VirtualMachine {
             break;
           }
           case OpCode.OP_SUBTRACT:
-            this.binaryOperator(numberValue, '-');
+            this.binaryOperator(Value.numberValue, '-');
             break;
           case OpCode.OP_MULTIPLY:
-            this.binaryOperator(numberValue, '*');
+            this.binaryOperator(Value.numberValue, '*');
             break;
           case OpCode.OP_DIVIDE:
-            this.binaryOperator(numberValue, '/');
+            this.binaryOperator(Value.numberValue, '/');
             break;
           case OpCode.OP_NOT:
-            this.push(booleanValue(isFalsy(this.pop())));
+            this.push(Value.booleanValue(this.pop().isFalsy()));
             break;
           case OpCode.OP_NEGATE: {
-            if (!isNumber(this.peek())) {
+            if (!this.peek().isNumber()) {
               this.runtimeError('Operand must be a number');
               return InterpretResult.RUNTIME_ERROR;
             }
-            const number = asNumber(this.pop());
+            const number = this.pop().asNumber();
             const negate = number === 0 ? -0 : -number;
-            this.push(numberValue(negate));
+            this.push(Value.numberValue(negate));
             break;
           }
           case OpCode.OP_PRINT: {
-            const value = printValue(this.pop());
+            const value = this.pop().toString();
             this.environment.stdout(value);
             this.environment.stdout('\n');
             break;
           }
           case OpCode.OP_JUMP_IF_FALSE: {
             const offset = this.readShort();
-            if (isFalsy(this.peek())) {
+            if (this.peek().isFalsy()) {
               frame.instructionIndex += offset;
             }
             break;
@@ -221,7 +209,7 @@ export class VirtualMachine {
           case OpCode.OP_CLOSURE: {
             const func = LoxFunction.asFunction(this.readConstant());
             const closure = new LoxClosure(func);
-            this.push(objectValue(closure));
+            this.push(Value.objectValue(closure));
 
             for (let i = 0; i < closure.upvalueCount; i++) {
               const isLocal = this.readByte();
@@ -329,7 +317,7 @@ export class VirtualMachine {
   }
 
   private callValue(callee: Value, argCount: number): boolean {
-    if (isObject(callee)) {
+    if (callee.isObject()) {
       switch (LoxObject.objectType(callee)) {
         case ObjectType.CLOSURE:
           return this.call(LoxClosure.asClosure(callee), argCount);
@@ -420,14 +408,14 @@ export class VirtualMachine {
    * @param op
    * @throws OPERANDS_NOT_NUMBERS
    */
-  private binaryOperator(valueType: typeof numberValue | typeof booleanValue, op: BinaryOperator): void {
-    if (!isNumber(this.peek()) || !isNumber(this.peek(1))) {
+  private binaryOperator(valueType: typeof Value.numberValue | typeof Value.booleanValue, op: BinaryOperator): void {
+    if (!this.peek().isNumber() || !this.peek(1).isNumber()) {
       this.runtimeError('Operands must be numbers');
       throw new Error('OPERANDS_ARE_NOT_NUMBER');
     }
 
-    const b = asNumber(this.pop());
-    const a = asNumber(this.pop());
+    const b = this.pop().asNumber();
+    const a = this.pop().asNumber();
 
     const result = ((): number | boolean => {
       switch (op) {
@@ -455,10 +443,10 @@ export class VirtualMachine {
 
     const string = a.chars.concat(b.chars);
     if (this.strings.has(string)) {
-      this.push(objectValue(this.strings.get(string)!));
+      this.push(Value.objectValue(this.strings.get(string)!));
     } else {
       const result = new LoxString(string);
-      this.push(objectValue(result));
+      this.push(Value.objectValue(result));
       this.strings.set(string, result);
     }
   }

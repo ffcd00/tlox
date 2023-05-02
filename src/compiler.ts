@@ -6,7 +6,7 @@ import { Environment } from './environment';
 import { LoxFunction, LoxString } from './object';
 import { Parser } from './parser';
 import { Scanner, Token } from './scanner';
-import { numberValue, objectValue } from './value';
+import { Value } from './value';
 
 type ParseFn = (canAssign: boolean) => void;
 
@@ -151,7 +151,7 @@ export class Compiler {
     const token = this.parser.previous;
     if (token.type !== TokenType.ERROR) {
       const value = parseFloat(this.source.substring(token.start, token.start + token.length));
-      this.emitter.emitConstant(numberValue(value));
+      this.emitter.emitConstant(Value.numberValue(value));
     }
   }
 
@@ -164,7 +164,7 @@ export class Compiler {
         this.emitter.emitBytes(OpCode.OP_CONSTANT, this.strings.get(sourceString)!);
       } else {
         const string = new LoxString(sourceString);
-        const index = this.emitter.emitConstant(objectValue(string));
+        const index = this.emitter.emitConstant(Value.objectValue(string));
         this.strings.set(sourceString, index);
       }
     }
@@ -314,7 +314,7 @@ export class Compiler {
     if (name.type !== TokenType.ERROR) {
       const chars = this.source.substring(name.start, name.start + name.length);
       const loxString = new LoxString(chars);
-      return this.emitter.makeConstant(objectValue(loxString));
+      return this.emitter.makeConstant(Value.objectValue(loxString));
     }
     return -1;
   }
@@ -530,7 +530,7 @@ export class Compiler {
     const func = compiler.endCompiler();
     this.emitter.setCurrentChunk(this.func.chunk);
 
-    const constant = this.emitter.makeConstant(objectValue(func));
+    const constant = this.emitter.makeConstant(Value.objectValue(func));
     this.emitter.emitBytes(OpCode.OP_CLOSURE, constant);
 
     for (let i = 0; i < func.upvalueCount; i++) {

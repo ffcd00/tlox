@@ -1,88 +1,93 @@
 import { ValueType } from './enum';
 import { LoxObject } from './object';
 
-export type Value = {
-  type: ValueType;
-  as: boolean | number | LoxObject;
-};
+export class Value extends Object {
+  public type: ValueType;
 
-export type ValueArray = Array<Value>;
+  public as: boolean | number | LoxObject;
 
-export function booleanValue(value: boolean): Value {
-  return { type: ValueType.BOOLEAN, as: value };
-}
-
-export function nilValue(): Value {
-  return { type: ValueType.NIL, as: 0 };
-}
-
-export function numberValue(value: number): Value {
-  return { type: ValueType.NUMBER, as: value };
-}
-
-export function objectValue(value: LoxObject): Value {
-  return { type: ValueType.OBJECT, as: value };
-}
-
-export function asBoolean(value: Value): boolean {
-  return value.as as boolean;
-}
-
-export function asNumber(value: Value): number {
-  return value.as as number;
-}
-
-export function asObject(value: Value): LoxObject {
-  return value.as as LoxObject;
-}
-
-export function isBoolean(value: Value): boolean {
-  return value.type === ValueType.BOOLEAN;
-}
-
-export function isNil(value: Value): boolean {
-  return value.type === ValueType.NIL;
-}
-
-export function isNumber(value: Value): boolean {
-  return value.type === ValueType.NUMBER;
-}
-
-export function isObject(value: Value): boolean {
-  return value.type === ValueType.OBJECT;
-}
-
-export function isFalsy(value: Value): boolean {
-  return isNil(value) || (isBoolean(value) && !asBoolean(value));
-}
-
-export function valuesEqual(a: Value, b: Value): boolean {
-  if (a.type !== b.type) {
-    return false;
+  constructor(type: ValueType, as: boolean | number | LoxObject) {
+    super();
+    this.type = type;
+    this.as = as;
   }
 
-  switch (a.type) {
-    case ValueType.BOOLEAN:
-      return asBoolean(a) === asBoolean(b);
-    case ValueType.NIL:
-      return true;
-    case ValueType.NUMBER:
-      return asNumber(a) === asNumber(b);
-    case ValueType.OBJECT: {
-      return asObject(a) === asObject(b);
+  public asBoolean(): boolean {
+    return this.as as boolean;
+  }
+
+  public asNumber(): number {
+    return this.as as number;
+  }
+
+  public asObject(): LoxObject {
+    return this.as as LoxObject;
+  }
+
+  public isBoolean(): boolean {
+    return this.type === ValueType.BOOLEAN;
+  }
+
+  public isNil(): boolean {
+    return this.type === ValueType.NIL;
+  }
+
+  public isNumber(): boolean {
+    return this.type === ValueType.NUMBER;
+  }
+
+  public isObject(): boolean {
+    return this.type === ValueType.OBJECT;
+  }
+
+  public isFalsy(): boolean {
+    return this.isNil() || (this.isBoolean() && !this.asBoolean());
+  }
+
+  public equals(other: Value): boolean {
+    if (this.type !== other.type) {
+      return false;
+    }
+
+    switch (this.type) {
+      case ValueType.BOOLEAN:
+        return this.asBoolean() === other.asBoolean();
+      case ValueType.NIL:
+        return true;
+      case ValueType.NUMBER:
+        return this.asNumber() === other.asNumber();
+      case ValueType.OBJECT: {
+        return this.asObject() === other.asObject();
+      }
     }
   }
-}
 
-export function printValue(value: Value): string {
-  switch (value.type) {
-    case ValueType.BOOLEAN:
-      return String(value.as);
-    case ValueType.NIL:
-      return 'nil';
-    case ValueType.NUMBER:
-      return Object.is(value.as, -0) ? '-0' : String(value.as);
-    case ValueType.OBJECT:
-      return value.as.toString();
+  public override toString(): string {
+    switch (this.type) {
+      case ValueType.BOOLEAN:
+        return String(this.as);
+      case ValueType.NIL:
+        return 'nil';
+      case ValueType.NUMBER:
+        return Object.is(this.as, -0) ? '-0' : String(this.as);
+      case ValueType.OBJECT:
+        return this.as.toString();
+    }
+  }
+
+  public static booleanValue(value: boolean): Value {
+    return new Value(ValueType.BOOLEAN, value);
+  }
+
+  public static nilValue(): Value {
+    return new Value(ValueType.NIL, 0);
+  }
+
+  public static numberValue(value: number): Value {
+    return new Value(ValueType.NUMBER, value);
+  }
+
+  public static objectValue(value: LoxObject): Value {
+    return new Value(ValueType.OBJECT, value);
   }
 }

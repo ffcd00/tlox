@@ -1,16 +1,16 @@
 import { Chunk } from './chunk';
 import { ObjectType } from './enum';
-import { asObject, isObject, Value } from './value';
+import { Value } from './value';
 
 export abstract class LoxObject {
   public abstract type: ObjectType;
 
   public static objectType(value: Value): ObjectType {
-    return asObject(value).type;
+    return value.asObject().type;
   }
 
   public static isObjectType(value: Value, type: ObjectType): boolean {
-    return isObject(value) && asObject(value).type === type;
+    return value.isObject() && value.asObject().type === type;
   }
 }
 
@@ -32,7 +32,7 @@ export class LoxString extends LoxObject {
   }
 
   public static asString(value: Value): LoxString {
-    return asObject(value) as LoxString;
+    return value.asObject() as LoxString;
   }
 
   public override toString(): string {
@@ -64,7 +64,7 @@ export class LoxFunction extends LoxObject {
   }
 
   public static asFunction(value: Value): LoxFunction {
-    return asObject(value) as LoxFunction;
+    return value.asObject() as LoxFunction;
   }
 
   public override toString(): string {
@@ -117,7 +117,7 @@ export class LoxClosure extends LoxObject {
   }
 
   public static asClosure(value: Value): LoxClosure {
-    return asObject(value) as LoxClosure;
+    return value.asObject() as LoxClosure;
   }
 
   public override toString(): string {

@@ -1,7 +1,6 @@
 import { Chunk } from './chunk';
 import { OpCode } from './enum';
 import { LoxFunction } from './object';
-import { printValue } from './value';
 
 const OP_NAME_PADDING = 16;
 
@@ -66,7 +65,7 @@ export class DebugUtil {
       case OpCode.OP_CLOSURE: {
         let tempOffset = offset + 1;
         const constant = chunk.code[tempOffset++];
-        const constantLabel = printValue(chunk.constants[constant]);
+        const constantLabel = chunk.constants[constant].toString();
         console.log(`${message} ${'OP_CLOSURE'.padEnd(OP_NAME_PADDING, ' ')} ${constant} ${constantLabel}`);
 
         const func = LoxFunction.asFunction(chunk.constants[constant]);
@@ -130,7 +129,7 @@ export class DebugUtil {
     const constantIndex = chunk.code[offset + 1];
     if (constantIndex !== undefined) {
       const constant = chunk.constants[constantIndex];
-      console.log(`${message} ${name.padEnd(OP_NAME_PADDING, ' ')} ${constantIndex} ${printValue(constant)}`);
+      console.log(`${message} ${name.padEnd(OP_NAME_PADDING, ' ')} ${constantIndex} ${constant.toString()}`);
       return offset + 2;
     }
     console.error(`Error: constant not found at index ${offset + 1}`);
