@@ -124,3 +124,52 @@ export class LoxClosure extends LoxObject {
     return this.func.toString();
   }
 }
+
+export class LoxClass extends LoxObject {
+  public type = ObjectType.CLASS;
+
+  public name: LoxString;
+
+  constructor(name: LoxString) {
+    super();
+    this.name = name;
+  }
+
+  public static isClass(value: Value): boolean {
+    return LoxObject.isObjectType(value, ObjectType.CLASS);
+  }
+
+  public static asClass(value: Value): LoxClass {
+    return value.asObject() as LoxClass;
+  }
+
+  public override toString(): string {
+    return this.name.chars;
+  }
+}
+
+export class LoxInstance extends LoxObject {
+  public type = ObjectType.INSTANCE;
+
+  public klass: LoxClass;
+
+  public fields: Map<string, Value>;
+
+  constructor(klass: LoxClass) {
+    super();
+    this.klass = klass;
+    this.fields = new Map<string, Value>();
+  }
+
+  public static isInstance(value: Value): boolean {
+    return LoxObject.isObjectType(value, ObjectType.INSTANCE);
+  }
+
+  public static asInstance(value: Value): LoxInstance {
+    return value.asObject() as LoxInstance;
+  }
+
+  public override toString(): string {
+    return `${this.klass.name.chars} instance`;
+  }
+}

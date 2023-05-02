@@ -87,6 +87,12 @@ export class DebugUtil {
         return this.byteInstruction('OP_SET_UPVALUE', offset, message, chunk);
       case OpCode.OP_CLOSE_UPVALUE:
         return this.simpleInstruction('OP_CLOSE_UPVALUE', offset, message);
+      case OpCode.OP_CLASS:
+        return this.constantInstruction('OP_CLASS', offset, message, chunk);
+      case OpCode.OP_GET_PROPERTY:
+        return this.constantInstruction('OP_GET_PROPERTY', offset, message, chunk);
+      case OpCode.OP_SET_PROPERTY:
+        return this.constantInstruction('OP_SET_PROPERTY', offset, message, chunk);
       default:
         console.log(`Unknown opcode ${instruction}`);
         return offset + 1;

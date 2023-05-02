@@ -3,7 +3,7 @@ import { DebugUtil } from './debug';
 import { InterpretResult, ObjectType, OpCode } from './enum';
 import { Environment } from './environment';
 import { CallFrame } from './frame';
-import { LoxClosure, LoxFunction, LoxString, LoxUpvalue, LoxObject } from './object';
+import { LoxClosure, LoxFunction, LoxString, LoxUpvalue, LoxObject, LoxClass, LoxInstance } from './object';
 import { Value } from './value';
 
 const FRAMES_MAX = 64;
@@ -130,6 +130,39 @@ export class VirtualMachine {
             frame.closure.upvalues[slot].location = this.peek();
             break;
           }
+          case OpCode.OP_GET_PROPERTY: {
+            if (!LoxInstance.isInstance(this.peek())) {
+              this.runtimeError('Only instances have properties');
+              return InterpretResult.RUNTIME_ERROR;
+            }
+
+            const instance = LoxInstance.asInstance(this.peek());
+            const name: string = this.readString().chars;
+
+            let value: Value | undefined;
+            if ((value = instance.fields.get(name))) {
+              this.pop();
+              this.push(value);
+              break;
+            }
+
+            this.runtimeError(`Undefined property ${name}`);
+            return InterpretResult.RUNTIME_ERROR;
+          }
+          case OpCode.OP_SET_PROPERTY: {
+            if (!LoxInstance.isInstance(this.peek(1))) {
+              this.runtimeError('Only instances have fields');
+              return InterpretResult.RUNTIME_ERROR;
+            }
+
+            const instance = LoxInstance.asInstance(this.peek(1));
+            const name = this.readString().chars;
+            instance.fields.set(name, this.peek());
+            const value = this.pop();
+            this.pop();
+            this.push(value);
+            break;
+          }
           case OpCode.OP_EQUAL: {
             const b = this.pop();
             const a = this.pop();
@@ -241,6 +274,12 @@ export class VirtualMachine {
             frame = this.frames[this.frameCount - 1];
             break;
           }
+          case OpCode.OP_CLASS: {
+            const name = this.readString();
+            const klass = new LoxClass(name);
+            this.push(Value.objectValue(klass));
+            break;
+          }
         }
       } catch (e: unknown) {
         if (e instanceof Error) {
@@ -319,6 +358,12 @@ export class VirtualMachine {
   private callValue(callee: Value, argCount: number): boolean {
     if (callee.isObject()) {
       switch (LoxObject.objectType(callee)) {
+        case ObjectType.CLASS: {
+          const klass = LoxClass.asClass(callee);
+          const instance = new LoxInstance(klass);
+          this.stack[this.stackTop - argCount - 1] = Value.objectValue(instance);
+          return true;
+        }
         case ObjectType.CLOSURE:
           return this.call(LoxClosure.asClosure(callee), argCount);
         default:

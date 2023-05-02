@@ -262,6 +262,18 @@ export class Compiler {
     this.emitter.emitBytes(OpCode.OP_CALL, argCount);
   }
 
+  private dot(canAssign: boolean): void {
+    this.consume(TokenType.IDENTIFIER, "Expect property name after '.'");
+    const name = this.identifierConstant(this.parser.previous);
+
+    if (canAssign && this.match(TokenType.EQUAL)) {
+      this.expression();
+      this.emitter.emitBytes(OpCode.OP_SET_PROPERTY, name);
+    } else {
+      this.emitter.emitBytes(OpCode.OP_GET_PROPERTY, name);
+    }
+  }
+
   private literal(): void {
     switch (this.parser.previous.type) {
       case TokenType.FALSE:
@@ -539,6 +551,18 @@ export class Compiler {
     }
   }
 
+  private classDeclaration(): void {
+    this.consume(TokenType.IDENTIFIER, 'Expect class name');
+    const nameConstant = this.identifierConstant(this.parser.previous);
+    this.declareVariable();
+
+    this.emitter.emitBytes(OpCode.OP_CLASS, nameConstant);
+    this.defineVariable(nameConstant);
+
+    this.consume(TokenType.LEFT_BRACE, "Expect '{' before class body");
+    this.consume(TokenType.RIGHT_BRACE, "Expect '}' after class body");
+  }
+
   private funDeclaration(): void {
     const global = this.parseVariable('Expect function name');
     this.markInitialized();
@@ -562,7 +586,9 @@ export class Compiler {
   }
 
   private declaration(): void {
-    if (this.match(TokenType.FUN)) {
+    if (this.match(TokenType.CLASS)) {
+      this.classDeclaration();
+    } else if (this.match(TokenType.FUN)) {
       this.funDeclaration();
     } else if (this.match(TokenType.VAR)) {
       this.varDeclaration();
@@ -803,7 +829,7 @@ export class Compiler {
     [TokenType.LEFT_BRACE]: Compiler.makeParseRule(),
     [TokenType.RIGHT_BRACE]: Compiler.makeParseRule(),
     [TokenType.COMMA]: Compiler.makeParseRule(),
-    [TokenType.DOT]: Compiler.makeParseRule(),
+    [TokenType.DOT]: Compiler.makeParseRule(undefined, this.dot, Precedence.CALL),
     [TokenType.MINUS]: Compiler.makeParseRule(this.unary, this.binary, Precedence.TERM),
     [TokenType.PLUS]: Compiler.makeParseRule(undefined, this.binary, Precedence.TERM),
     [TokenType.SEMICOLON]: Compiler.makeParseRule(),
