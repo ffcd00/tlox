@@ -23,9 +23,29 @@ class Local {
 
   public depth: number;
 
-  constructor(name: Token, depth: number) {
+  public isCaptured: boolean;
+
+  constructor(name: Token, depth: number, isCaptured: boolean) {
     this.name = name;
     this.depth = depth;
+    this.isCaptured = isCaptured;
+  }
+}
+
+class Upvalue {
+  /**
+   * local slot the upvalue is capturing
+   */
+  public index: number;
+
+  /**
+   * determine if the value is a local variable
+   */
+  public isLocal: boolean;
+
+  constructor(index: number, isLocal: boolean) {
+    this.index = index;
+    this.isLocal = isLocal;
   }
 }
 
@@ -49,6 +69,11 @@ export class Compiler {
 
   private funcType: FunctionType;
 
+  // eslint-disable-next-line no-use-before-define
+  private enclosing: Compiler | undefined;
+
+  private upvalues: Upvalue[];
+
   constructor(
     private readonly scanner: Scanner,
     private readonly parser: Parser,
@@ -62,6 +87,7 @@ export class Compiler {
     this.funcType = FunctionType.SCRIPT;
     this.func = new ObjectFunction(0, new Chunk(), allocateString(''));
     this.emitter.setCurrentChunk(this.func.chunk);
+    this.upvalues = new Array<Upvalue>(UINT8_COUNT);
   }
 
   public compile(source: string): ObjectFunction | null {
@@ -156,6 +182,9 @@ export class Compiler {
     if (arg !== -1) {
       getOp = OpCode.OP_GET_LOCAL;
       setOp = OpCode.OP_SET_LOCAL;
+    } else if ((arg = this.resolveUpvalue(name)) !== -1) {
+      getOp = OpCode.OP_GET_UPVALUE;
+      setOp = OpCode.OP_SET_UPVALUE;
     } else {
       arg = this.identifierConstant(name);
       getOp = OpCode.OP_GET_GLOBAL;
@@ -321,13 +350,52 @@ export class Compiler {
     return -1;
   }
 
+  private resolveUpvalue(name: Token): number {
+    if (this.enclosing === undefined) {
+      return -1;
+    }
+
+    const local = this.enclosing.resolveLocal(name);
+    if (local !== -1) {
+      this.enclosing.locals[local].isCaptured = true;
+      return this.addUpvalue(local, true);
+    }
+
+    const upvalue = this.enclosing?.resolveUpvalue(name);
+    if (upvalue !== -1) {
+      return this.addUpvalue(upvalue, false);
+    }
+
+    return -1;
+  }
+
+  private addUpvalue(index: number, isLocal: boolean): number {
+    const { upvalueCount } = this.func;
+
+    for (let i = 0; i < upvalueCount; i++) {
+      const upvalue = this.upvalues[i];
+      if (upvalue.index === index && upvalue.isLocal === isLocal) {
+        return i;
+      }
+    }
+
+    if (upvalueCount === UINT8_COUNT) {
+      this.error('Too many closure variables in function');
+      return 0;
+    }
+
+    const upvalue = new Upvalue(index, isLocal);
+    this.upvalues[upvalueCount] = upvalue;
+    return this.func.upvalueCount++;
+  }
+
   private addLocal(name: Token): void {
     if (this.localCount === UINT8_COUNT) {
       this.error('Too many local variables in function.');
       return;
     }
 
-    const local = new Local(name, -1);
+    const local = new Local(name, -1, false);
     this.locals[this.localCount] = local;
     this.localCount += 1;
   }
@@ -438,6 +506,7 @@ export class Compiler {
     const compiler = new Compiler(this.scanner, this.parser, this.emitter, this.environment);
     compiler.funcType = type;
     compiler.source = this.source;
+    compiler.enclosing = this;
     if (name !== undefined) {
       compiler.func.name = name;
     }
@@ -463,6 +532,11 @@ export class Compiler {
 
     const constant = this.emitter.makeConstant(objectValue(func));
     this.emitter.emitBytes(OpCode.OP_CLOSURE, constant);
+
+    for (let i = 0; i < func.upvalueCount; i++) {
+      this.emitter.emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+      this.emitter.emitByte(compiler.upvalues[i].index);
+    }
   }
 
   private funDeclaration(): void {
@@ -647,7 +721,11 @@ export class Compiler {
     this.scopeDepth -= 1;
 
     while (this.localCount > 0 && this.locals[this.localCount - 1].depth > this.scopeDepth) {
-      this.emitter.emitByte(OpCode.OP_POP);
+      if (this.locals[this.localCount - 1].isCaptured) {
+        this.emitter.emitByte(OpCode.OP_CLOSE_UPVALUE);
+      } else {
+        this.emitter.emitByte(OpCode.OP_POP);
+      }
       this.localCount -= 1;
     }
   }
