@@ -1,18 +1,20 @@
 import { Chunk } from './chunk';
+import { ObjectType } from './enum';
 import { asObject, isObject, Value } from './value';
 
-export enum ObjectType {
-  CLOSURE,
-  FUNCTION,
-  STRING,
-  UPVALUE,
+export abstract class LoxObject {
+  public abstract type: ObjectType;
+
+  public static objectType(value: Value): ObjectType {
+    return asObject(value).type;
+  }
+
+  public static isObjectType(value: Value, type: ObjectType): boolean {
+    return isObject(value) && asObject(value).type === type;
+  }
 }
 
-export interface LoxObject {
-  type: ObjectType;
-}
-
-export class ObjectString implements LoxObject {
+export class LoxString extends LoxObject {
   public type = ObjectType.STRING;
 
   public length: number = 0;
@@ -20,114 +22,105 @@ export class ObjectString implements LoxObject {
   public chars: string = '';
 
   constructor(chars: string) {
+    super();
     this.chars = chars;
     this.length = chars.length;
   }
+
+  public static isString(value: Value): boolean {
+    return LoxObject.isObjectType(value, ObjectType.STRING);
+  }
+
+  public static asString(value: Value): LoxString {
+    return asObject(value) as LoxString;
+  }
+
+  public override toString(): string {
+    return this.chars;
+  }
 }
 
-export class ObjectFunction implements LoxObject {
+export class LoxFunction extends LoxObject {
   public type = ObjectType.FUNCTION;
 
   public arity: number;
 
   public chunk: Chunk;
 
-  public name: ObjectString;
+  public name: LoxString;
 
   public upvalueCount: number;
 
-  constructor(arity: number, chunk: Chunk, name: ObjectString) {
+  constructor(arity: number, chunk: Chunk, name: LoxString) {
+    super();
     this.arity = arity;
     this.chunk = chunk;
     this.name = name;
     this.upvalueCount = 0;
   }
+
+  public static isFunction(value: Value): boolean {
+    return LoxObject.isObjectType(value, ObjectType.FUNCTION);
+  }
+
+  public static asFunction(value: Value): LoxFunction {
+    return asObject(value) as LoxFunction;
+  }
+
+  public override toString(): string {
+    return `<fn ${this.name.chars}>`;
+  }
 }
 
-export class ObjectUpvalue implements LoxObject {
+export class LoxUpvalue extends LoxObject {
   public type = ObjectType.UPVALUE;
 
   public location: Value;
 
   // eslint-disable-next-line no-use-before-define
-  public next: ObjectUpvalue | undefined;
+  public next: LoxUpvalue | undefined;
 
   public upvalueIndex: number;
 
   public closed: Value | undefined;
 
   constructor(slot: Value) {
+    super();
     this.location = slot;
     this.next = undefined;
     this.upvalueIndex = 0;
   }
-}
 
-export class ObjectClosure implements LoxObject {
-  public type = ObjectType.CLOSURE;
-
-  public func: ObjectFunction;
-
-  public upvalues: ObjectUpvalue[];
-
-  public upvalueCount: number;
-
-  constructor(func: ObjectFunction) {
-    this.func = func;
-    this.upvalues = new Array<ObjectUpvalue>(func.upvalueCount);
-    this.upvalueCount = func.upvalueCount;
+  public override toString(): string {
+    return 'upvalue';
   }
 }
 
-export function objectType(value: Value): ObjectType {
-  return asObject(value).type;
-}
+export class LoxClosure extends LoxObject {
+  public type = ObjectType.CLOSURE;
 
-export function isObjectType(value: Value, type: ObjectType): boolean {
-  return isObject(value) && asObject(value).type === type;
-}
+  public func: LoxFunction;
 
-export function isString(value: Value): boolean {
-  return isObjectType(value, ObjectType.STRING);
-}
+  public upvalues: LoxUpvalue[];
 
-export function isFunction(value: Value): boolean {
-  return isObjectType(value, ObjectType.FUNCTION);
-}
+  public upvalueCount: number;
 
-export function isClosure(value: Value): boolean {
-  return isObjectType(value, ObjectType.CLOSURE);
-}
+  constructor(func: LoxFunction) {
+    super();
+    this.func = func;
+    this.upvalues = new Array<LoxUpvalue>(func.upvalueCount);
+    this.upvalueCount = func.upvalueCount;
+  }
 
-export function asString(value: Value): ObjectString {
-  return asObject(value) as ObjectString;
-}
+  public static isClosure(value: Value): boolean {
+    return LoxObject.isObjectType(value, ObjectType.CLOSURE);
+  }
 
-export function asFunction(value: Value): ObjectFunction {
-  return asObject(value) as ObjectFunction;
-}
+  public static asClosure(value: Value): LoxClosure {
+    return asObject(value) as LoxClosure;
+  }
 
-export function asClosure(value: Value): ObjectClosure {
-  return asObject(value) as ObjectClosure;
-}
-
-export function allocateString(chars: string): ObjectString {
-  return new ObjectString(chars);
-}
-
-export function printFunction(func: ObjectFunction): string {
-  return `<fn ${func.name.chars}>`;
-}
-
-export function printObject(value: Value): string {
-  switch (objectType(value)) {
-    case ObjectType.CLOSURE:
-      return printFunction(asClosure(value).func);
-    case ObjectType.FUNCTION:
-      return printFunction(asFunction(value));
-    case ObjectType.STRING:
-      return asString(value).chars;
-    case ObjectType.UPVALUE:
-      return 'upvalue';
+  public override toString(): string {
+    return this.func.toString();
   }
 }

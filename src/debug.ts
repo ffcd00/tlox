@@ -1,6 +1,6 @@
 import { Chunk } from './chunk';
 import { OpCode } from './enum';
-import { asFunction } from './object';
+import { LoxFunction } from './object';
 import { printValue } from './value';
 
 const OP_NAME_PADDING = 16;
@@ -69,7 +69,7 @@ export class DebugUtil {
         const constantLabel = printValue(chunk.constants[constant]);
         console.log(`${message} ${'OP_CLOSURE'.padEnd(OP_NAME_PADDING, ' ')} ${constant} ${constantLabel}`);
 
-        const func = asFunction(chunk.constants[constant]);
+        const func = LoxFunction.asFunction(chunk.constants[constant]);
         for (let i = 0; i < func.upvalueCount; i++) {
           const isLocal = chunk.code[tempOffset++];
           const index = chunk.code[tempOffset++];

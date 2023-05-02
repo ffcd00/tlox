@@ -109,3 +109,10 @@ export enum FunctionType {
   FUNCTION,
   SCRIPT,
 }
+
+export enum ObjectType {
+  CLOSURE,
+  FUNCTION,
+  STRING,
+  UPVALUE,
+}

@@ -1,5 +1,5 @@
 import { ValueType } from './enum';
-import { LoxObject, printObject } from './object';
+import { LoxObject } from './object';
 
 export type Value = {
   type: ValueType;
@@ -83,6 +83,6 @@ export function printValue(value: Value): string {
     case ValueType.NUMBER:
       return Object.is(value.as, -0) ? '-0' : String(value.as);
     case ValueType.OBJECT:
-      return printObject(value);
+      return value.as.toString();
   }
 }

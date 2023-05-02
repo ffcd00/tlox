@@ -1,21 +1,9 @@
 import { DEBUG_TRACE_EXECUTION, UINT8_COUNT } from './common';
 import { DebugUtil } from './debug';
-import { InterpretResult, OpCode } from './enum';
+import { InterpretResult, ObjectType, OpCode } from './enum';
 import { Environment } from './environment';
 import { CallFrame } from './frame';
-import {
-  allocateString,
-  asClosure,
-  asFunction,
-  asString,
-  isString,
-  ObjectClosure,
-  ObjectFunction,
-  ObjectString,
-  ObjectType,
-  objectType,
-  ObjectUpvalue,
-} from './object';
+import { LoxClosure, LoxFunction, LoxString, LoxUpvalue, LoxObject } from './object';
 import {
   asNumber,
   booleanValue,
@@ -49,7 +37,7 @@ export class VirtualMachine {
    * `strings` is a mapping between computed string constants and
    * the corresponding `ObjectString` for string interning in runtime.
    */
-  private readonly strings: Map<string, ObjectString> = new Map<string, ObjectString>();
+  private readonly strings: Map<string, LoxString> = new Map<string, LoxString>();
 
   /**
    * CallFrame in the VM
@@ -64,7 +52,7 @@ export class VirtualMachine {
   /**
    * The list of open upvalues
    */
-  private openUpvalues: ObjectUpvalue | undefined;
+  private openUpvalues: LoxUpvalue | undefined;
 
   constructor(private readonly debugUtil: DebugUtil, private readonly environment: Environment) {}
 
@@ -73,8 +61,8 @@ export class VirtualMachine {
     this.strings.clear();
   }
 
-  public run(func: ObjectFunction): InterpretResult {
-    const closure = new ObjectClosure(func);
+  public run(func: LoxFunction): InterpretResult {
+    const closure = new LoxClosure(func);
     const frame = new CallFrame(closure, 0, 0);
     this.frames[this.frameCount++] = frame;
 
@@ -167,7 +155,7 @@ export class VirtualMachine {
             this.binaryOperator(booleanValue, '<');
             break;
           case OpCode.OP_ADD: {
-            if (isString(this.peek()) && isString(this.peek(1))) {
+            if (LoxString.isString(this.peek()) && LoxString.isString(this.peek(1))) {
               this.concatenate();
             } else if (isNumber(this.peek()) && isNumber(this.peek(1))) {
               this.binaryOperator(numberValue, '+');
@@ -231,8 +219,8 @@ export class VirtualMachine {
             break;
           }
           case OpCode.OP_CLOSURE: {
-            const func = asFunction(this.readConstant());
-            const closure = new ObjectClosure(func);
+            const func = LoxFunction.asFunction(this.readConstant());
+            const closure = new LoxClosure(func);
             this.push(objectValue(closure));
 
             for (let i = 0; i < closure.upvalueCount; i++) {
@@ -306,8 +294,8 @@ export class VirtualMachine {
     return (a << 8) | b;
   }
 
-  private readString(): ObjectString {
-    return asString(this.readConstant());
+  private readString(): LoxString {
+    return LoxString.asString(this.readConstant());
   }
 
   private push(value: Value): void {
@@ -324,7 +312,7 @@ export class VirtualMachine {
     return this.stack[this.stackTop - 1 - distance];
   }
 
-  private call(closure: ObjectClosure, argCount: number): boolean {
+  private call(closure: LoxClosure, argCount: number): boolean {
     if (argCount !== closure.func.arity) {
       this.runtimeError(`Expect ${closure.func.arity} arguments but got ${argCount}`);
       return false;
@@ -342,9 +330,9 @@ export class VirtualMachine {
 
   private callValue(callee: Value, argCount: number): boolean {
     if (isObject(callee)) {
-      switch (objectType(callee)) {
+      switch (LoxObject.objectType(callee)) {
         case ObjectType.CLOSURE:
-          return this.call(asClosure(callee), argCount);
+          return this.call(LoxClosure.asClosure(callee), argCount);
         default:
           // Non-callable object type
           break;
@@ -359,9 +347,9 @@ export class VirtualMachine {
    * @param stackIndex
    * @returns
    */
-  private captureUpvalue(stackIndex: number): ObjectUpvalue {
+  private captureUpvalue(stackIndex: number): LoxUpvalue {
     const local = this.stack[stackIndex];
-    let prevUpvalue: ObjectUpvalue | undefined;
+    let prevUpvalue: LoxUpvalue | undefined;
     let upvalue = this.openUpvalues;
 
     while (upvalue !== undefined && upvalue.upvalueIndex > stackIndex) {
@@ -373,7 +361,7 @@ export class VirtualMachine {
       return upvalue;
     }
 
-    const createdUpvalue = new ObjectUpvalue(local);
+    const createdUpvalue = new LoxUpvalue(local);
     createdUpvalue.next = upvalue;
 
     if (prevUpvalue === undefined) {
@@ -462,14 +450,14 @@ export class VirtualMachine {
   }
 
   private concatenate(): void {
-    const b = asString(this.pop());
-    const a = asString(this.pop());
+    const b = LoxString.asString(this.pop());
+    const a = LoxString.asString(this.pop());
 
     const string = a.chars.concat(b.chars);
     if (this.strings.has(string)) {
       this.push(objectValue(this.strings.get(string)!));
     } else {
-      const result = allocateString(string);
+      const result = new LoxString(string);
       this.push(objectValue(result));
       this.strings.set(string, result);
     }

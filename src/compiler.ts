@@ -3,7 +3,7 @@ import { UINT8_COUNT } from './common';
 import { Emitter } from './emitter';
 import { FunctionType, OpCode, Precedence, TokenType } from './enum';
 import { Environment } from './environment';
-import { allocateString, asString, ObjectFunction, ObjectString } from './object';
+import { LoxFunction, LoxString } from './object';
 import { Parser } from './parser';
 import { Scanner, Token } from './scanner';
 import { numberValue, objectValue } from './value';
@@ -65,7 +65,7 @@ export class Compiler {
 
   private scopeDepth: number;
 
-  private func: ObjectFunction;
+  private func: LoxFunction;
 
   private funcType: FunctionType;
 
@@ -85,12 +85,12 @@ export class Compiler {
     this.localCount = 0;
     this.scopeDepth = 0;
     this.funcType = FunctionType.SCRIPT;
-    this.func = new ObjectFunction(0, new Chunk(), allocateString(''));
+    this.func = new LoxFunction(0, new Chunk(), new LoxString(''));
     this.emitter.setCurrentChunk(this.func.chunk);
     this.upvalues = new Array<Upvalue>(UINT8_COUNT);
   }
 
-  public compile(source: string): ObjectFunction | null {
+  public compile(source: string): LoxFunction | null {
     this.source = source;
     this.advance();
 
@@ -136,7 +136,7 @@ export class Compiler {
     return true;
   }
 
-  private endCompiler(): ObjectFunction {
+  private endCompiler(): LoxFunction {
     this.emitter.emitReturn();
     this.source = '';
     return this.func;
@@ -163,7 +163,7 @@ export class Compiler {
         // intern string
         this.emitter.emitBytes(OpCode.OP_CONSTANT, this.strings.get(sourceString)!);
       } else {
-        const string = allocateString(sourceString);
+        const string = new LoxString(sourceString);
         const index = this.emitter.emitConstant(objectValue(string));
         this.strings.set(sourceString, index);
       }
@@ -312,9 +312,9 @@ export class Compiler {
    */
   private identifierConstant(name: Token): number {
     if (name.type !== TokenType.ERROR) {
-      return this.emitter.makeConstant(
-        objectValue(allocateString(this.source.substring(name.start, name.start + name.length)))
-      );
+      const chars = this.source.substring(name.start, name.start + name.length);
+      const loxString = new LoxString(chars);
+      return this.emitter.makeConstant(objectValue(loxString));
     }
     return -1;
   }
@@ -502,7 +502,7 @@ export class Compiler {
     this.consume(TokenType.RIGHT_BRACE, "Expect '}' after block.");
   }
 
-  private function(type: FunctionType, name?: ObjectString): void {
+  private function(type: FunctionType, name?: LoxString): void {
     const compiler = new Compiler(this.scanner, this.parser, this.emitter, this.environment);
     compiler.funcType = type;
     compiler.source = this.source;
@@ -543,7 +543,7 @@ export class Compiler {
     const global = this.parseVariable('Expect function name');
     this.markInitialized();
     const functionName = this.func.chunk.constants[global];
-    this.function(FunctionType.FUNCTION, functionName ? asString(functionName) : undefined);
+    this.function(FunctionType.FUNCTION, functionName ? LoxString.asString(functionName) : undefined);
     this.defineVariable(global);
   }
 
