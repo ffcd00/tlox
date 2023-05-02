@@ -1,5 +1,6 @@
 import { Chunk } from './chunk';
 import { OpCode } from './enum';
+import { asFunction } from './object';
 import { printValue } from './value';
 
 const OP_NAME_PADDING = 16;
@@ -63,12 +64,30 @@ export class DebugUtil {
       case OpCode.OP_CALL:
         return this.byteInstruction('OP_CALL', offset, message, chunk);
       case OpCode.OP_CLOSURE: {
-        let index = offset + 1;
-        const constant = chunk.code[index++];
+        let tempOffset = offset + 1;
+        const constant = chunk.code[tempOffset++];
         const constantLabel = printValue(chunk.constants[constant]);
         console.log(`${message} ${'OP_CLOSURE'.padEnd(OP_NAME_PADDING, ' ')} ${constant} ${constantLabel}`);
-        return index;
+
+        const func = asFunction(chunk.constants[constant]);
+        for (let i = 0; i < func.upvalueCount; i++) {
+          const isLocal = chunk.code[tempOffset++];
+          const index = chunk.code[tempOffset++];
+          console.log(
+            `${String(tempOffset - 2).padStart(4, '0')} ${'|'.padEnd(OP_NAME_PADDING)} ${
+              isLocal ? 'local' : 'upvalue'
+            } ${index}`
+          );
+        }
+
+        return tempOffset;
       }
+      case OpCode.OP_GET_UPVALUE:
+        return this.byteInstruction('OP_GET_UPVALUE', offset, message, chunk);
+      case OpCode.OP_SET_UPVALUE:
+        return this.byteInstruction('OP_SET_UPVALUE', offset, message, chunk);
+      case OpCode.OP_CLOSE_UPVALUE:
+        return this.simpleInstruction('OP_CLOSE_UPVALUE', offset, message);
       default:
         console.log(`Unknown opcode ${instruction}`);
         return offset + 1;

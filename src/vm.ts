@@ -14,6 +14,7 @@ import {
   ObjectString,
   ObjectType,
   objectType,
+  ObjectUpvalue,
 } from './object';
 import {
   asNumber,
@@ -59,6 +60,11 @@ export class VirtualMachine {
    * The current height of the CallFrame stack
    */
   private frameCount: number = 0;
+
+  /**
+   * The list of open upvalues
+   */
+  private openUpvalues: ObjectUpvalue | undefined;
 
   constructor(private readonly debugUtil: DebugUtil, private readonly environment: Environment) {}
 
@@ -136,6 +142,16 @@ export class VirtualMachine {
             }
 
             this.globals.set(name, this.peek());
+            break;
+          }
+          case OpCode.OP_GET_UPVALUE: {
+            const slot = this.readByte();
+            this.push(frame.closure.upvalues[slot].location);
+            break;
+          }
+          case OpCode.OP_SET_UPVALUE: {
+            const slot = this.readByte();
+            frame.closure.upvalues[slot].location = this.peek();
             break;
           }
           case OpCode.OP_EQUAL: {
@@ -218,10 +234,26 @@ export class VirtualMachine {
             const func = asFunction(this.readConstant());
             const closure = new ObjectClosure(func);
             this.push(objectValue(closure));
+
+            for (let i = 0; i < closure.upvalueCount; i++) {
+              const isLocal = this.readByte();
+              const index = this.readByte();
+              if (isLocal) {
+                closure.upvalues[i] = this.captureUpvalue(frame.slotIndex + index);
+              } else {
+                closure.upvalues[i] = frame.closure.upvalues[index];
+              }
+            }
+            break;
+          }
+          case OpCode.OP_CLOSE_UPVALUE: {
+            this.closeUpvalues(this.stackTop - 1);
+            this.pop();
             break;
           }
           case OpCode.OP_RETURN: {
             const result = this.pop();
+            this.closeUpvalues(frame.slotIndex);
             this.frameCount -= 1;
             if (this.frameCount === 0) {
               this.pop();
@@ -240,6 +272,7 @@ export class VirtualMachine {
             return InterpretResult.RUNTIME_ERROR;
           }
         }
+        throw e;
       }
     }
   }
@@ -321,9 +354,57 @@ export class VirtualMachine {
     return false;
   }
 
+  /**
+   * Capture a value at the given index in the stack
+   * @param stackIndex
+   * @returns
+   */
+  private captureUpvalue(stackIndex: number): ObjectUpvalue {
+    const local = this.stack[stackIndex];
+    let prevUpvalue: ObjectUpvalue | undefined;
+    let upvalue = this.openUpvalues;
+
+    while (upvalue !== undefined && upvalue.upvalueIndex > stackIndex) {
+      prevUpvalue = upvalue;
+      upvalue = upvalue.next;
+    }
+
+    if (upvalue !== undefined && upvalue.location === local) {
+      return upvalue;
+    }
+
+    const createdUpvalue = new ObjectUpvalue(local);
+    createdUpvalue.next = upvalue;
+
+    if (prevUpvalue === undefined) {
+      createdUpvalue.upvalueIndex = 0;
+      this.openUpvalues = createdUpvalue;
+    } else {
+      createdUpvalue.upvalueIndex = prevUpvalue.upvalueIndex + 1;
+      prevUpvalue.next = createdUpvalue;
+    }
+
+    return createdUpvalue;
+  }
+
+  /**
+   * Close an upvalue at a given index in the stack
+   * @param stackIndex
+   */
+  private closeUpvalues(stackIndex: number): void {
+    const last = this.stack[stackIndex];
+    while (this.openUpvalues !== undefined && this.openUpvalues.location >= last) {
+      const upvalue = this.openUpvalues;
+      upvalue.closed = upvalue.location;
+      upvalue.location = upvalue.closed;
+      this.openUpvalues = upvalue.next;
+    }
+  }
+
   private resetStack(): void {
     this.stackTop = 0;
     this.frameCount = 0;
+    this.openUpvalues = undefined;
   }
 
   private runtimeError(message: string): void {

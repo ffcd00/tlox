@@ -52,11 +52,14 @@ export class ObjectUpvalue implements LoxObject {
   // eslint-disable-next-line no-use-before-define
   public next: ObjectUpvalue | undefined;
 
+  public upvalueIndex: number;
+
   public closed: Value | undefined;
 
   constructor(slot: Value) {
     this.location = slot;
     this.next = undefined;
+    this.upvalueIndex = 0;
   }
 }
 
