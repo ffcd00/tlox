@@ -49,6 +49,15 @@ class Upvalue {
   }
 }
 
+export class ClassCompiler {
+  // eslint-disable-next-line no-use-before-define
+  public enclosing: ClassCompiler | undefined;
+
+  constructor(enclosing?: ClassCompiler) {
+    this.enclosing = enclosing;
+  }
+}
+
 export class Compiler {
   private source!: string;
 
@@ -74,20 +83,24 @@ export class Compiler {
 
   private upvalues: Upvalue[];
 
+  private currentClass: ClassCompiler | undefined;
+
   constructor(
     private readonly scanner: Scanner,
     private readonly parser: Parser,
     private readonly emitter: Emitter,
-    private readonly environment: Environment
+    private readonly environment: Environment,
+    funcType: FunctionType = FunctionType.SCRIPT
   ) {
     this.strings = new Map<string, number>();
     this.locals = new Array<Local>(UINT8_COUNT + 1);
     this.localCount = 0;
     this.scopeDepth = 0;
-    this.funcType = FunctionType.SCRIPT;
+    this.funcType = funcType;
     this.func = new LoxFunction(0, new Chunk(), new LoxString(''));
     this.emitter.setCurrentChunk(this.func.chunk);
     this.upvalues = new Array<Upvalue>(UINT8_COUNT);
+    this.enclosing = undefined;
   }
 
   public compile(source: string): LoxFunction | null {
@@ -137,7 +150,7 @@ export class Compiler {
   }
 
   private endCompiler(): LoxFunction {
-    this.emitter.emitReturn();
+    this.emitter.emitReturn(this.funcType);
     this.source = '';
     return this.func;
   }
@@ -201,6 +214,15 @@ export class Compiler {
 
   private variable(canAssign: boolean): void {
     this.namedVariable(this.parser.previous, canAssign);
+  }
+
+  private $this(): void {
+    if (this.currentClass === undefined) {
+      this.error("Can't use 'this' outside of a class");
+      return;
+    }
+
+    this.variable(false);
   }
 
   private unary(): void {
@@ -269,6 +291,10 @@ export class Compiler {
     if (canAssign && this.match(TokenType.EQUAL)) {
       this.expression();
       this.emitter.emitBytes(OpCode.OP_SET_PROPERTY, name);
+    } else if (this.match(TokenType.LEFT_PAREN)) {
+      const argCount = this.argumentList();
+      this.emitter.emitBytes(OpCode.OP_INVOKE, name);
+      this.emitter.emitByte(argCount);
     } else {
       this.emitter.emitBytes(OpCode.OP_GET_PROPERTY, name);
     }
@@ -349,6 +375,10 @@ export class Compiler {
   }
 
   private resolveLocal(name: Token): number {
+    // slot zero will store the instance that `this` is bound to
+    if (name.type === TokenType.THIS) {
+      return 0;
+    }
     for (let i = this.localCount - 1; i >= 0; i -= 1) {
       const local = this.locals[i];
       if (this.identifiersEqual(name, local.name)) {
@@ -515,10 +545,10 @@ export class Compiler {
   }
 
   private function(type: FunctionType, name?: LoxString): void {
-    const compiler = new Compiler(this.scanner, this.parser, this.emitter, this.environment);
-    compiler.funcType = type;
+    const compiler = new Compiler(this.scanner, this.parser, this.emitter, this.environment, type);
     compiler.source = this.source;
     compiler.enclosing = this;
+    compiler.currentClass = this.currentClass;
     if (name !== undefined) {
       compiler.func.name = name;
     }
@@ -551,16 +581,44 @@ export class Compiler {
     }
   }
 
+  private method(): void {
+    this.consume(TokenType.IDENTIFIER, 'Expect method name');
+    const constant = this.identifierConstant(this.parser.previous);
+
+    let type: FunctionType = FunctionType.METHOD;
+    const token = this.parser.previous;
+    if (
+      token.type !== TokenType.ERROR &&
+      token.length === 4 &&
+      this.source.substring(token.start, token.start + token.length) === 'init'
+    ) {
+      type = FunctionType.INITIALIZER;
+    }
+
+    this.function(type);
+    this.emitter.emitBytes(OpCode.OP_METHOD, constant);
+  }
+
   private classDeclaration(): void {
     this.consume(TokenType.IDENTIFIER, 'Expect class name');
+    const className = this.parser.previous;
     const nameConstant = this.identifierConstant(this.parser.previous);
     this.declareVariable();
 
     this.emitter.emitBytes(OpCode.OP_CLASS, nameConstant);
     this.defineVariable(nameConstant);
 
+    this.currentClass = new ClassCompiler(this.currentClass);
+
+    this.namedVariable(className, false);
     this.consume(TokenType.LEFT_BRACE, "Expect '{' before class body");
+    while (!this.check(TokenType.RIGHT_BRACE) && !this.check(TokenType.EOF)) {
+      this.method();
+    }
     this.consume(TokenType.RIGHT_BRACE, "Expect '}' after class body");
+    this.emitter.emitByte(OpCode.OP_POP);
+
+    this.currentClass = this.currentClass.enclosing;
   }
 
   private funDeclaration(): void {
@@ -639,8 +697,12 @@ export class Compiler {
       this.error("Can't return from top-level code");
     }
     if (this.match(TokenType.SEMICOLON)) {
-      this.emitter.emitReturn();
+      this.emitter.emitReturn(this.funcType);
     } else {
+      if (this.funcType === FunctionType.INITIALIZER) {
+        this.error("Can't return a value from an initializer");
+      }
+
       this.expression();
       this.consume(TokenType.SEMICOLON, "Expect ';' after return value");
       this.emitter.emitByte(OpCode.OP_RETURN);
@@ -858,7 +920,7 @@ export class Compiler {
     [TokenType.PRINT]: Compiler.makeParseRule(),
     [TokenType.RETURN]: Compiler.makeParseRule(),
     [TokenType.SUPER]: Compiler.makeParseRule(),
-    [TokenType.THIS]: Compiler.makeParseRule(),
+    [TokenType.THIS]: Compiler.makeParseRule(this.$this),
     [TokenType.TRUE]: Compiler.makeParseRule(this.literal),
     [TokenType.VAR]: Compiler.makeParseRule(),
     [TokenType.WHILE]: Compiler.makeParseRule(),

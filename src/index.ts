@@ -1,3 +1,1 @@
-import { interpret } from './main';
-
-export { interpret };
+export { interpret } from './main';

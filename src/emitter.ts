@@ -1,5 +1,5 @@
 import { Chunk } from './chunk';
-import { OpCode } from './enum';
+import { FunctionType, OpCode } from './enum';
 import { Parser } from './parser';
 import { Value } from './value';
 
@@ -18,8 +18,13 @@ export class Emitter {
     this.emitByte(byte2);
   }
 
-  public emitReturn(): void {
-    this.emitByte(OpCode.OP_NIL);
+  public emitReturn(type: FunctionType): void {
+    if (type === FunctionType.INITIALIZER) {
+      this.emitBytes(OpCode.OP_GET_LOCAL, 0);
+    } else {
+      this.emitByte(OpCode.OP_NIL);
+    }
+
     this.emitByte(OpCode.OP_RETURN);
   }
 

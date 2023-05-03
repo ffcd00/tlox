@@ -93,6 +93,10 @@ export class DebugUtil {
         return this.constantInstruction('OP_GET_PROPERTY', offset, message, chunk);
       case OpCode.OP_SET_PROPERTY:
         return this.constantInstruction('OP_SET_PROPERTY', offset, message, chunk);
+      case OpCode.OP_METHOD:
+        return this.constantInstruction('OP_METHOD', offset, message, chunk);
+      case OpCode.OP_INVOKE:
+        return this.invokeInstruction('OP_INVOKE', offset, message, chunk);
       default:
         console.log(`Unknown opcode ${instruction}`);
         return offset + 1;
@@ -140,5 +144,13 @@ export class DebugUtil {
     }
     console.error(`Error: constant not found at index ${offset + 1}`);
     return offset + 1;
+  }
+
+  private invokeInstruction(name: keyof typeof OpCode, offset: number, message: string, chunk: Chunk): number {
+    const constant = chunk.code[offset + 1];
+    const argCount = chunk.code[offset + 2];
+    const value = chunk.constants[constant];
+    console.log(`${message} ${name.padEnd(OP_NAME_PADDING, ' ')} ${argCount} ${constant} ${value}`);
+    return offset + 3;
   }
 }
