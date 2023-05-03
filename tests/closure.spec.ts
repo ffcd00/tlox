@@ -137,26 +137,27 @@ describe('test closure', () => {
   });
 
   test('close over method parameter', () => {
-    // TODO: clases
-    // // arrange
-    // const source = `
-    //   var f;
-    //   class Foo {
-    //     method(param) {
-    //       fun f_() {
-    //         print param;
-    //       }
-    //       f = f_;
-    //     }
-    //   }
-    //   Foo().method("param");
-    //   f(); // expect: param
-    // `;
-    // // act
-    // const result = interpret(source);
-    // // assert
-    // expect(result).toEqual(InterpretResult.OK);
-    // expect(stdout).toHaveBeenNthCalledWith(1, 'param');
+    // arrange
+    const source = `
+      var f;
+      class Foo {
+        method(param) {
+          fun f_() {
+            print param;
+          }
+          f = f_;
+        }
+      }
+      Foo().method("param");
+      f(); // expect: param
+    `;
+
+    // act
+    const result = interpret(source);
+
+    // assert
+    expect(result).toEqual(InterpretResult.OK);
+    expect(stdout).toHaveBeenNthCalledWith(1, 'param');
   });
 
   test('close closure in function', () => {

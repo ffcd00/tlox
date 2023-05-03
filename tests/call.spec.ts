@@ -66,21 +66,22 @@ describe('test call', () => {
   });
 
   test('object', () => {
-    // TODO: restore
-    // // arrange
-    // const source = `
-    //   class Foo {}
-    //   var foo = Foo();
-    //   foo(); // expect runtime error: Can only call functions and classes.
-    // `;
-    // // act
-    // const result = interpret(source);
-    // // assert
-    // expect(result).toEqual(InterpretResult.RUNTIME_ERROR);
-    // expect(stderr).toHaveBeenNthCalledWith(
-    //   1,
-    //   'runtime error: Can only call functions and classes'
-    // );
+    // arrange
+    const source = `
+      class Foo {}
+      var foo = Foo();
+      foo(); // expect runtime error: Can only call functions and classes.
+    `;
+
+    // act
+    const result = interpret(source);
+
+    // assert
+    expect(result).toEqual(InterpretResult.RUNTIME_ERROR);
+    expect(stderr).toHaveBeenNthCalledWith(
+      1,
+      'runtime error: Can only call functions and classes'
+    );
   });
 
   test('string', () => {

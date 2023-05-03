@@ -106,11 +106,10 @@ describe('test number', () => {
 
       // assert
       expect(result).toEqual(InterpretResult.COMPILE_ERROR);
-      // TODO: restore after classes are ready
-      // expect(stderr).toHaveBeenNthCalledWith(
-      //   1,
-      //   "[line 2] Error at end: Expect property name after '.'"
-      // );
+      expect(stderr).toHaveBeenNthCalledWith(
+        1,
+        "[line 4] Error at end: Expect property name after '.'"
+      );
     });
   });
 
@@ -144,10 +143,9 @@ describe('test number', () => {
 
     // assert
     expect(result).toEqual(InterpretResult.COMPILE_ERROR);
-    // TODO: restore after classes are ready
-    // expect(stderr).toHaveBeenNthCalledWith(
-    //   1,
-    //   "[line 2] Error at ';': Expect property name after '.'"
-    // );
+    expect(stderr).toHaveBeenNthCalledWith(
+      1,
+      "[line 3] Error at ';': Expect property name after '.'"
+    );
   });
 });

@@ -109,22 +109,23 @@ describe('test return', () => {
   });
 
   test('in method', () => {
-    // TODO: restore when methods are ready
-    // // arrange
-    // const source = `
-    //   class Foo {
-    //     method() {
-    //       return "ok";
-    //       print "bad";
-    //     }
-    //   }
-    //   print Foo().method(); // expect: ok
-    // `;
-    // // act
-    // const result = interpret(source);
-    // // assert
-    // expect(result).toEqual(InterpretResult.OK);
-    // expect(stdout).toHaveBeenNthCalledWith(1, 'ok');
+    // arrange
+    const source = `
+      class Foo {
+        method() {
+          return "ok";
+          print "bad";
+        }
+      }
+      print Foo().method(); // expect: ok
+    `;
+
+    // act
+    const result = interpret(source);
+
+    // assert
+    expect(result).toEqual(InterpretResult.OK);
+    expect(stdout).toHaveBeenNthCalledWith(1, 'ok');
   });
 
   test('return nil if no value', () => {
