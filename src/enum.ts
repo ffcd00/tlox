@@ -27,10 +27,12 @@ export enum OpCode {
   OP_JUMP_IF_FALSE,
   OP_LOOP,
   OP_CALL,
+  OP_INVOKE,
   OP_CLOSURE,
   OP_CLOSE_UPVALUE,
   OP_RETURN,
   OP_CLASS,
+  OP_METHOD,
 }
 
 export enum TokenType {
@@ -110,10 +112,13 @@ export enum ValueType {
 
 export enum FunctionType {
   FUNCTION,
+  INITIALIZER,
+  METHOD,
   SCRIPT,
 }
 
 export enum ObjectType {
+  BOUND_METHOD,
   CLASS,
   CLOSURE,
   FUNCTION,

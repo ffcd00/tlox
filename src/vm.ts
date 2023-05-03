@@ -3,7 +3,16 @@ import { DebugUtil } from './debug';
 import { InterpretResult, ObjectType, OpCode } from './enum';
 import { Environment } from './environment';
 import { CallFrame } from './frame';
-import { LoxClosure, LoxFunction, LoxString, LoxUpvalue, LoxObject, LoxClass, LoxInstance } from './object';
+import {
+  LoxClosure,
+  LoxFunction,
+  LoxString,
+  LoxUpvalue,
+  LoxObject,
+  LoxClass,
+  LoxInstance,
+  LoxBoundMethod,
+} from './object';
 import { Value } from './value';
 
 const FRAMES_MAX = 64;
@@ -137,17 +146,19 @@ export class VirtualMachine {
             }
 
             const instance = LoxInstance.asInstance(this.peek());
-            const name: string = this.readString().chars;
+            const name = this.readString();
 
             let value: Value | undefined;
-            if ((value = instance.fields.get(name))) {
+            if ((value = instance.fields.get(name.chars))) {
               this.pop();
               this.push(value);
               break;
             }
 
-            this.runtimeError(`Undefined property ${name}`);
-            return InterpretResult.RUNTIME_ERROR;
+            if (!this.bindMethod(instance.klass, name)) {
+              return InterpretResult.RUNTIME_ERROR;
+            }
+            break;
           }
           case OpCode.OP_SET_PROPERTY: {
             if (!LoxInstance.isInstance(this.peek(1))) {
@@ -239,6 +250,17 @@ export class VirtualMachine {
             frame = this.frames[this.frameCount - 1];
             break;
           }
+          case OpCode.OP_INVOKE: {
+            const method = this.readString();
+            const argCount = this.readByte();
+
+            if (!this.invoke(method, argCount)) {
+              return InterpretResult.RUNTIME_ERROR;
+            }
+
+            frame = this.frames[this.frameCount - 1];
+            break;
+          }
           case OpCode.OP_CLOSURE: {
             const func = LoxFunction.asFunction(this.readConstant());
             const closure = new LoxClosure(func);
@@ -280,6 +302,8 @@ export class VirtualMachine {
             this.push(Value.objectValue(klass));
             break;
           }
+          case OpCode.OP_METHOD:
+            this.defineMethod(this.readString());
         }
       } catch (e: unknown) {
         if (e instanceof Error) {
@@ -349,7 +373,7 @@ export class VirtualMachine {
       return false;
     }
 
-    const frame = new CallFrame(closure, 0, this.stackTop - argCount);
+    const frame = new CallFrame(closure, 0, this.stackTop - argCount - 1);
     this.frames[this.frameCount] = frame;
     this.frameCount += 1;
     return true;
@@ -358,10 +382,27 @@ export class VirtualMachine {
   private callValue(callee: Value, argCount: number): boolean {
     if (callee.isObject()) {
       switch (LoxObject.objectType(callee)) {
+        case ObjectType.BOUND_METHOD: {
+          const bound = LoxBoundMethod.asBoundMethod(callee);
+
+          this.stack[this.stackTop - argCount - 1] = bound.receiver;
+
+          return this.call(bound.method, argCount);
+        }
         case ObjectType.CLASS: {
           const klass = LoxClass.asClass(callee);
           const instance = new LoxInstance(klass);
           this.stack[this.stackTop - argCount - 1] = Value.objectValue(instance);
+
+          let initializer: Value | undefined;
+          if ((initializer = klass.methods.get('init'))) {
+            return this.call(LoxClosure.asClosure(initializer), argCount);
+          }
+          if (argCount !== 0) {
+            this.runtimeError(`Expected 0 arguments but got ${argCount}`);
+            return false;
+          }
+
           return true;
         }
         case ObjectType.CLOSURE:
@@ -373,6 +414,48 @@ export class VirtualMachine {
     }
     this.runtimeError('Can only call functions and classes');
     return false;
+  }
+
+  private invokeFromClass(klass: LoxClass, name: LoxString, argCount: number): boolean {
+    let method: Value | undefined;
+    if (!(method = klass.methods.get(name.chars))) {
+      this.runtimeError(`Undefined property ${name.chars}`);
+      return false;
+    }
+    return this.call(LoxClosure.asClosure(method), argCount);
+  }
+
+  private invoke(name: LoxString, argCount: number): boolean {
+    const receiver = this.peek(argCount);
+
+    if (!LoxInstance.isInstance(receiver)) {
+      this.runtimeError('Only instances have methods');
+      return false;
+    }
+
+    const instance = LoxInstance.asInstance(receiver);
+
+    let value: Value | undefined;
+    if ((value = instance.fields.get(name.chars))) {
+      this.stack[this.stackTop - argCount - 1] = value;
+      return this.callValue(value, argCount);
+    }
+
+    return this.invokeFromClass(instance.klass, name, argCount);
+  }
+
+  private bindMethod(klass: LoxClass, name: LoxString): boolean {
+    let method: Value | undefined;
+    if (!(method = klass.methods.get(name.chars))) {
+      this.runtimeError(`Undefined property '${name}'`);
+      return false;
+    }
+
+    const bound = new LoxBoundMethod(this.peek(), LoxClosure.asClosure(method));
+
+    this.pop();
+    this.push(Value.objectValue(bound));
+    return true;
   }
 
   /**
@@ -420,6 +503,13 @@ export class VirtualMachine {
       upvalue.location = upvalue.closed;
       this.openUpvalues = upvalue.next;
     }
+  }
+
+  private defineMethod(name: LoxString): void {
+    const method = this.peek();
+    const klass = LoxClass.asClass(this.peek(1));
+    klass.methods.set(name.chars, method);
+    this.pop();
   }
 
   private resetStack(): void {

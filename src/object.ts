@@ -130,9 +130,12 @@ export class LoxClass extends LoxObject {
 
   public name: LoxString;
 
+  public methods: Map<string, Value>;
+
   constructor(name: LoxString) {
     super();
     this.name = name;
+    this.methods = new Map<string, Value>();
   }
 
   public static isClass(value: Value): boolean {
@@ -171,5 +174,32 @@ export class LoxInstance extends LoxObject {
 
   public override toString(): string {
     return `${this.klass.name.chars} instance`;
+  }
+}
+
+export class LoxBoundMethod extends LoxObject {
+  public type = ObjectType.BOUND_METHOD;
+
+  public receiver: Value;
+
+  public method: LoxClosure;
+
+  constructor(receiver: Value, method: LoxClosure) {
+    super();
+
+    this.receiver = receiver;
+    this.method = method;
+  }
+
+  public static isBoundMethod(value: Value): boolean {
+    return LoxObject.isObjectType(value, ObjectType.BOUND_METHOD);
+  }
+
+  public static asBoundMethod(value: Value): LoxBoundMethod {
+    return value.asObject() as LoxBoundMethod;
+  }
+
+  public override toString(): string {
+    return this.method.func.toString();
   }
 }
